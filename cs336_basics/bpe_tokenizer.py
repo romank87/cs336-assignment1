@@ -1,3 +1,4 @@
+import heapq
 import os
 import pickle
 import re
@@ -9,6 +10,8 @@ import regex as re
 
 import os
 from typing import BinaryIO
+
+from networkx.classes import neighbors
 
 
 def find_chunk_boundaries(
@@ -64,6 +67,7 @@ def re_split(chunk, special_tokens):
 
 pat = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
 
+
 def generate_pre_tokens(doc: str):
     return re.findall(pat, doc)
 
@@ -80,6 +84,7 @@ def proc_func(index, chunk, special_tokens):
 
     with open(f"/tmp/tokenizer_tmp_{index}.pkl", "wb") as fd:
         pickle.dump(pre_tokens, fd)
+
 
 def init_pre_tokens(input_path, special_tokens):
     num_processes = os.cpu_count()
@@ -134,6 +139,7 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
+    from types import SimpleNamespace as sn
 
     vocab = {}
     for token in special_tokens:
@@ -143,28 +149,116 @@ def run_train_bpe(
 
     pre_tokens_dict = init_pre_tokens(input_path, special_tokens)
 
+    def _invert_token(token: bytes) -> tuple[int, ...]:
+        """Produce a tuple that inverts lexicographic order for use in the heap."""
+        return tuple(-b for b in token) + (-len(token),)
+
+    def _heap_item(count: int, pair: tuple[bytes, bytes], version: int):
+        key = (_invert_token(pair[0]), _invert_token(pair[1]))
+        return (-count, key, version, pair)
+
+    def build_pair_index():
+        pair_index = defaultdict(lambda: sn(pre_tokens=set(), count=0, ver=0))
+        for pre_token, count in pre_tokens_dict.items():
+            for i in range(1, len(pre_token)):
+                pair = tuple((pre_token[i - 1], pre_token[i]))
+                pair_index[pair].pre_tokens.add(pre_token)
+                pair_index[pair].count += count
+
+        heap = [_heap_item(struct.count, pair, 0) for pair, struct in pair_index.items()]
+        heapq.heapify(heap)
+
+        return pair_index, heap
+
+    pair_index, heap = build_pair_index()
+    print(f"Pair index size: {len(pair_index)}")
+
     merges = []
+
+    def run_single_merge_with_index():
+        if len(vocab) % 1000 == 0:
+            print(f"vocab size: {len(vocab)}. Pair index size: {len(pair_index)}")
+
+        # pair, struct = max(pair_index.items(), key=lambda x: x[1].count)
+        # maxval = struct.count
+        # candidates = [(p, st) for p, st in pair_index.items() if st.count == maxval]
+        # pair, struct = max(candidates)
+
+
+        neg_count, _, ver, pair = heapq.heappop(heap)
+        while pair not in pair_index or pair_index[pair].count != -neg_count or pair_index[pair].ver != ver:
+            neg_count, _, ver, pair = heapq.heappop(heap)
+
+        struct = pair_index[pair]
+
+        merges.append(pair)
+        vocab[len(vocab)] = b''.join(pair)
+
+        pairs = set()
+        for pre_token in list(struct.pre_tokens):
+            if pre_token not in pre_tokens_dict:
+                continue
+
+            local_count = pre_tokens_dict[pre_token]
+            original_pre_token = pre_token
+
+            # for given pre-token, decrease count of all pairs in index
+            for i in range(1, len(original_pre_token)):
+                p = tuple((original_pre_token[i - 1], original_pre_token[i]))
+                pairs.add(p)
+                pair_index[p].count -= local_count
+                pair_index[p].pre_tokens.discard(original_pre_token)
+
+            # now merge within one pre_token
+            acc = [original_pre_token[0]]
+            for i in range(1, len(original_pre_token)):
+                if pair[1] == original_pre_token[i] and pair[0] == acc[-1]:
+                    acc.pop()
+                    acc.append(pair[0] + pair[1])
+                else:
+                    acc.append(original_pre_token[i])
+
+            new_pre_token = tuple(acc)
+            pre_tokens_dict.pop(original_pre_token)
+            pre_tokens_dict[new_pre_token] = local_count
+            pre_token = new_pre_token
+
+            for i in range(1, len(pre_token)):
+                p = tuple((pre_token[i - 1], pre_token[i]))
+                pairs.add(p)
+                pair_index[p].count += local_count
+                pair_index[p].pre_tokens.add(pre_token)
+
+        struct.pre_tokens.clear()
+
+        for p in (pairs - {pair}):
+            pair_index[p].ver = len(vocab)
+            heapq.heappush(heap, _heap_item(pair_index[p].count, p, len(vocab)))
+
+        pair_index.pop(pair)
+
+    def run_single_merge():
+        if len(vocab) % 100 == 0:
+            print(f"Building vocab: {len(vocab)}/{vocab_size}")
+        merge_candidates = defaultdict(int)
+        best_count = 0
+        for pre_token, count in pre_tokens_dict.items():
+            for i in range(len(pre_token) - 1):
+                merge = (pre_token[i], pre_token[i + 1])
+                merge_candidates[merge] += count
+                best_count = max(best_count, merge_candidates[merge])
+
+        values = [merge for merge, count in merge_candidates.items() if count == best_count]
+        best_merge = max(values)
+
+        # Update merges and vocab
+        merges.append(best_merge)
+        vocab[len(vocab)] = b''.join(best_merge)
+
     while len(vocab) < vocab_size:
-        def run_single_merge():
-            if len(vocab) % 100 == 0:
-                print(f"Building vocab: {len(vocab)}/{vocab_size}")
-            merge_candidates = defaultdict(int)
-            best_count = 0
-            for pre_token, count in pre_tokens_dict.items():
-                for i in range(len(pre_token) - 1):
-                    merge = (pre_token[i], pre_token[i + 1])
-                    merge_candidates[merge] += count
-                    best_count = max(best_count, merge_candidates[merge])
-
-            values = [merge for merge, count in merge_candidates.items() if count == best_count]
-            best_merge = max(values)
-
-            # Update merges and vocab
-            merges.append(best_merge)
-            vocab[len(vocab)] = b''.join(best_merge)
-
-        run_single_merge()
-        pre_tokens_dict = update_pre_tokens(pre_tokens_dict, merges[-1])
+        run_single_merge_with_index()
+        # run_single_merge()
+        # pre_tokens_dict = update_pre_tokens(pre_tokens_dict, merges[-1])
 
     return vocab, merges
 
@@ -194,13 +288,13 @@ if __name__ == "__main__":
     input_path = Path(__file__).parent / "../data/TinyStoriesV2-GPT4-train.txt"
     vocab, merges = run_train_bpe(
         input_path=input_path,
-        vocab_size=1000,
+        vocab_size=10000,
         special_tokens=["<|endoftext|>"],
     )
     print("Done!")
-    print("Vocab:")
-    for k, v in vocab.items():
-        print(f"{k}: {v}")
-    print("\nMerges:")
-    for merge in merges:
-        print(merge)
+    # print("Vocab:")
+    # for k, v in vocab.items():
+    #     print(f"{k}: {v}")
+    # print("\nMerges:")
+    # for merge in merges:
+    #     print(merge)
