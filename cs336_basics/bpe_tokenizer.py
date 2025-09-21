@@ -229,8 +229,6 @@ def run_train_bpe(
                 pair_index[p].count += local_count
                 pair_index[p].pre_tokens.add(pre_token)
 
-        struct.pre_tokens.clear()
-
         for p in (pairs - {pair}):
             pair_index[p].ver = len(vocab)
             heapq.heappush(heap, _heap_item(pair_index[p].count, p, len(vocab)))
