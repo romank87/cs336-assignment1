@@ -1,17 +1,12 @@
 import heapq
 import os
 import pickle
-import re
 from collections import defaultdict
 from multiprocessing import Process
 from pathlib import Path
-
-import regex as re
-
-import os
 from typing import BinaryIO
 
-from networkx.classes import neighbors
+import regex as re
 
 
 def find_chunk_boundaries(
@@ -73,6 +68,7 @@ def generate_pre_tokens(doc: str):
 
 
 def proc_func(index, chunk, special_tokens):
+    print(f"Process {index} started")
     docs = re_split(chunk, special_tokens)
 
     pre_tokens = defaultdict(int)
@@ -107,6 +103,7 @@ def init_pre_tokens(input_path, special_tokens):
             with open(f"/tmp/tokenizer_tmp_{index}.pkl", "rb") as fd:
                 for k, v in pickle.load(fd).items():
                     pre_tokens[k] += v
+            os.remove(f"/tmp/tokenizer_tmp_{index}.pkl")
             print(f"Process f{index} done")
 
         return pre_tokens
@@ -150,7 +147,6 @@ def run_train_bpe(
     pre_tokens_dict = init_pre_tokens(input_path, special_tokens)
 
     def _invert_token(token: bytes) -> tuple[int, ...]:
-        """Produce a tuple that inverts lexicographic order for use in the heap."""
         return tuple(-b for b in token) + (-len(token),)
 
     def _heap_item(count: int, pair: tuple[bytes, bytes], version: int):
@@ -176,14 +172,8 @@ def run_train_bpe(
     merges = []
 
     def run_single_merge_with_index():
-        if len(vocab) % 1000 == 0:
+        if len(vocab) % 100 == 0:
             print(f"vocab size: {len(vocab)}. Pair index size: {len(pair_index)}")
-
-        # pair, struct = max(pair_index.items(), key=lambda x: x[1].count)
-        # maxval = struct.count
-        # candidates = [(p, st) for p, st in pair_index.items() if st.count == maxval]
-        # pair, struct = max(candidates)
-
 
         neg_count, _, ver, pair = heapq.heappop(heap)
         while pair not in pair_index or pair_index[pair].count != -neg_count or pair_index[pair].ver != ver:
@@ -235,64 +225,39 @@ def run_train_bpe(
 
         pair_index.pop(pair)
 
-    def run_single_merge():
-        if len(vocab) % 100 == 0:
-            print(f"Building vocab: {len(vocab)}/{vocab_size}")
-        merge_candidates = defaultdict(int)
-        best_count = 0
-        for pre_token, count in pre_tokens_dict.items():
-            for i in range(len(pre_token) - 1):
-                merge = (pre_token[i], pre_token[i + 1])
-                merge_candidates[merge] += count
-                best_count = max(best_count, merge_candidates[merge])
-
-        values = [merge for merge, count in merge_candidates.items() if count == best_count]
-        best_merge = max(values)
-
-        # Update merges and vocab
-        merges.append(best_merge)
-        vocab[len(vocab)] = b''.join(best_merge)
-
     while len(vocab) < vocab_size:
         run_single_merge_with_index()
-        # run_single_merge()
-        # pre_tokens_dict = update_pre_tokens(pre_tokens_dict, merges[-1])
 
     return vocab, merges
 
 
-def update_pre_tokens(pre_tokens_dict, best_merge):
-    new_pre_tokens = {}
-    for pre_token, count in list(pre_tokens_dict.items()):
-        new_pre_token = pre_token
-
-        pairs = zip(pre_token[:-1], pre_token[1:])
-        if best_merge in pairs:
-            acc = [pre_token[0]]
-            for i in range(1, len(pre_token)):
-                if best_merge[1] == pre_token[i] and best_merge[0] == acc[-1]:
-                    acc.pop()
-                    acc.append(best_merge[0] + best_merge[1])
-                else:
-                    acc.append(pre_token[i])
-            new_pre_token = tuple(acc)
-
-        assert new_pre_token not in new_pre_tokens
-        new_pre_tokens[new_pre_token] = count
-    return new_pre_tokens
-
-
 if __name__ == "__main__":
-    input_path = Path(__file__).parent / "../data/TinyStoriesV2-GPT4-train.txt"
-    vocab, merges = run_train_bpe(
-        input_path=input_path,
-        vocab_size=10000,
-        special_tokens=["<|endoftext|>"],
-    )
-    print("Done!")
-    # print("Vocab:")
-    # for k, v in vocab.items():
-    #     print(f"{k}: {v}")
-    # print("\nMerges:")
-    # for merge in merges:
-    #     print(merge)
+
+    for (filename, vocab_size) in [("TinyStoriesV2-GPT4-valid.txt", 1000),
+                                   ("TinyStoriesV2-GPT4-train.txt", 10000),
+                                   ("owt_train.txt", 32000)]:
+
+        input_path = Path(__file__).parent / f"../data/{filename}"
+        print(f"\n-----\nWorking on {input_path}")
+
+        vocab, merges = run_train_bpe(
+            input_path=input_path,
+            vocab_size=vocab_size,
+            special_tokens=["<|endoftext|>"],
+        )
+        print("Done, saving data")
+        target_dir = Path(input_path).parent / "../output"
+        target_dir.mkdir(exist_ok=True)
+
+        vocab_file = target_dir / f"{Path(input_path).name[:-4]}_vocab.txt"
+        with open(vocab_file, "w", encoding="utf-8") as f:
+            for item in vocab.items():
+                f.write(f"{item}\n")
+
+        merges_file = target_dir / f"{Path(input_path).name[:-4]}_merges.txt"
+        with open(merges_file, "w", encoding="utf-8") as f:
+            for merge in merges:
+                f.write(f"{merge}\n")
+
+        print(f"Wrote vocab to {vocab_file}")
+        print(f"Wrote merges to {merges_file}")

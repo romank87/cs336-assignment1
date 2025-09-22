@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import io
 import os
+from collections import defaultdict
 from collections.abc import Iterable
 from typing import IO, Any, BinaryIO
 
@@ -8,6 +10,7 @@ import numpy.typing as npt
 import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
+import cs336_basics
 
 
 def run_linear(
@@ -33,10 +36,10 @@ def run_linear(
 
 
 def run_embedding(
-    vocab_size: int,
-    d_model: int,
-    weights: Float[Tensor, " vocab_size d_model"],
-    token_ids: Int[Tensor, " ..."],
+        vocab_size: int,
+        d_model: int,
+        weights: Float[Tensor, " vocab_size d_model"],
+        token_ids: Int[Tensor, " ..."],
 ) -> Float[Tensor, " ... d_model"]:
     """
     Given the weights of an Embedding layer, get the embeddings for a batch of token ids.
@@ -108,13 +111,13 @@ def run_scaled_dot_product_attention(
 
 
 def run_multihead_self_attention(
-    d_model: int,
-    num_heads: int,
-    q_proj_weight: Float[Tensor, " d_k d_in"],
-    k_proj_weight: Float[Tensor, " d_k d_in"],
-    v_proj_weight: Float[Tensor, " d_v d_in"],
-    o_proj_weight: Float[Tensor, " d_model d_v"],
-    in_features: Float[Tensor, " ... sequence_length d_in"],
+        d_model: int,
+        num_heads: int,
+        q_proj_weight: Float[Tensor, " d_k d_in"],
+        k_proj_weight: Float[Tensor, " d_k d_in"],
+        v_proj_weight: Float[Tensor, " d_v d_in"],
+        o_proj_weight: Float[Tensor, " d_model d_v"],
+        in_features: Float[Tensor, " ... sequence_length d_in"],
 ) -> Float[Tensor, " ... sequence_length d_out"]:
     """
     Given the key, query, and value projection weights of a naive unbatched
@@ -540,9 +543,9 @@ def run_load_checkpoint(
 
 
 def get_tokenizer(
-    vocab: dict[int, bytes],
-    merges: list[tuple[bytes, bytes]],
-    special_tokens: list[str] | None = None,
+        vocab: dict[int, bytes],
+        merges: list[tuple[bytes, bytes]],
+        special_tokens: list[str] | None = None,
 ) -> Any:
     """Given a vocabulary, a list of merges, and a list of special tokens,
     return a BPE tokenizer that uses the provided vocab, merges, and special tokens.
@@ -559,14 +562,14 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    raise NotImplementedError
+    return cs336_basics.Tokenizer(vocab, merges, special_tokens=special_tokens)
 
 
 def run_train_bpe(
-    input_path: str | os.PathLike,
-    vocab_size: int,
-    special_tokens: list[str],
-    **kwargs,
+        input_path: str | os.PathLike,
+        vocab_size: int,
+        special_tokens: list[str],
+        **kwargs,
 ) -> tuple[dict[int, bytes], list[tuple[bytes, bytes]]]:
     """Given the path to an input corpus, run train a BPE tokenizer and
     output its vocabulary and merges.
@@ -589,4 +592,5 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    raise NotImplementedError
+
+    return cs336_basics.run_train_bpe(input_path, vocab_size, special_tokens, **kwargs)
