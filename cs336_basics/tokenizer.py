@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import ast
+from email.policy import default
 from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 
 import regex as re
+from tqdm import tqdm
 
 
 class Tokenizer:
@@ -23,6 +25,7 @@ class Tokenizer:
         self.invert_vocab = {v: k for k, v in vocab.items()}
 
         self.merges = merges
+        self.merges_index = {merge: i for i, merge in enumerate(merges)}
         self.special_tokens = special_tokens if special_tokens is not None else []
 
         self.pat = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
@@ -51,12 +54,14 @@ class Tokenizer:
     def encode(self, text: str) -> List[int]:
         exp = "(" + "|".join([re.escape(token) for token in sorted(self.special_tokens, reverse=True)]) + ")"
 
+        print("Encoding text of length", len(text))
         docs = [text]
         if self.special_tokens:
             docs = re.split(exp, text)
         result = []
+        print("Split done, num docs:", len(docs))
+        for doc in tqdm(docs):
 
-        for doc in docs:
             if not doc:
                 continue
             if doc in self.special_tokens:
@@ -69,11 +74,12 @@ class Tokenizer:
                 tokens = [bytes([b]) for b in pre_token.encode("utf-8", errors="ignore")]
                 pairs = {p for p in zip(tokens[:-1], tokens[1:])}
 
-                for merge in self.merges:
-                    if len(tokens) == 1:
+                while True:
+                    min_idx = min((self.merges_index[pair] for pair in pairs if pair in self.merges_index), default=-1)
+                    if min_idx < 0:
                         break
-                    if merge not in pairs:
-                        continue
+                    merge = self.merges[min_idx]
+
                     i = 0
                     new_tokens = []
                     while i < len(tokens):
