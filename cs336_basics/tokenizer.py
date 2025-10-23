@@ -75,8 +75,8 @@ class Tokenizer:
                 pairs = {p for p in zip(tokens[:-1], tokens[1:])}
 
                 while True:
-                    min_idx = min((self.merges_index[pair] for pair in pairs if pair in self.merges_index), default=-1)
-                    if min_idx < 0:
+                    min_idx = min((self.merges_index[pair] for pair in pairs if pair in self.merges_index), default=len(self.merges_index))
+                    if min_idx >= len(self.merges_index):
                         break
                     merge = self.merges[min_idx]
 
