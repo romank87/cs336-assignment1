@@ -81,3 +81,39 @@ def run_rope(
     rotated[..., 0::2] = rotated_even
     rotated[..., 1::2] = rotated_odd
     return rotated
+
+
+def run_softmax_classic(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
+    """
+    Given a tensor of inputs, return the output of softmaxing the given `dim`
+    of the input.
+
+    Args:
+        in_features (Float[Tensor, "..."]): Input features to softmax. Shape is arbitrary.
+        dim (int): Dimension of the `in_features` to apply softmax to.
+
+    Returns:
+        Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
+        softmax normalizing the specified `dim`.
+    """
+    x = in_features - torch.max(in_features, dim=dim, keepdim=True).values
+    denominator = torch.sum(torch.exp(x), dim=dim, keepdim=True)
+    return torch.exp(x) / denominator
+
+
+def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
+    """
+    Given a tensor of inputs, return the output of softmaxing the given `dim`
+    of the input.
+
+    Args:
+        in_features (Float[Tensor, "..."]): Input features to softmax. Shape is arbitrary.
+        dim (int): Dimension of the `in_features` to apply softmax to.
+
+    Returns:
+        Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
+        softmax normalizing the specified `dim`.
+    """
+    x = in_features - torch.max(in_features, dim=dim, keepdim=True).values
+    denominator = torch.sum(torch.exp(x), dim=dim, keepdim=True)
+    return torch.exp(x) / denominator

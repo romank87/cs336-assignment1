@@ -3,7 +3,6 @@ import math
 import torch
 from torch import nn
 
-
 class Linear(nn.Module):
     def __init__(self, in_features, out_features, device=None, dtype=None):
         super(Linear, self).__init__()
