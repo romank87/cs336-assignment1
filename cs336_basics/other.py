@@ -28,12 +28,10 @@ def run_swiglu(
         w3_weight: Float[Tensor, " d_ff d_model"],
         in_features: Float[Tensor, " ... d_model"],
 ) -> Float[Tensor, " ... d_model"]:
-
-    w1x = in_features @ w1_weight.transpose(-1, -2) # (... d_model) x  (d_ff d_model)^T =  ... d_ff
+    w1x = in_features @ w1_weight.transpose(-1, -2)  # (... d_model) x  (d_ff d_model)^T =  ... d_ff
     w3x = in_features @ w3_weight.transpose(-1, -2)  # ... d_ff
 
-    silu = w1x * torch.sigmoid(w1x) # ... d_ff
-
+    silu = w1x * torch.sigmoid(w1x)  # ... d_ff
 
     inside = silu * w3x  # ... d_off
 

@@ -287,7 +287,19 @@ def run_transformer_block(
         Float[Tensor, "batch sequence_length d_model"] Tensor with the output of
         running the Transformer block on the input features while using RoPE.
     """
-    raise NotImplementedError
+
+    # return cs336_basics.run_transformer_block(d_model, num_heads, d_ff, max_seq_len, theta, weights, in_features)
+    return cs336_basics.run_transformer_block(d_model, num_heads, d_ff, max_seq_len, theta,
+                                              weights["ln1.weight"],
+                                              weights["ln2.weight"],
+                                              weights["attn.q_proj.weight"],
+                                              weights["attn.k_proj.weight"],
+                                              weights["attn.v_proj.weight"],
+                                              weights["attn.output_proj.weight"],
+                                              weights["ffn.w1.weight"],
+                                              weights["ffn.w2.weight"],
+                                              weights["ffn.w3.weight"],
+                                              in_features)
 
 
 def run_transformer_lm(
@@ -369,7 +381,24 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    x = weights["token_embeddings.weight"][in_indices]
+
+    for layer in range(num_layers):
+        x = cs336_basics.run_transformer_block(d_model, num_heads, d_ff, context_length, rope_theta,
+                                               weights[f"layers.{layer}.ln1.weight"],
+                                               weights[f"layers.{layer}.ln2.weight"],
+                                               weights[f"layers.{layer}.attn.q_proj.weight"],
+                                               weights[f"layers.{layer}.attn.k_proj.weight"],
+                                               weights[f"layers.{layer}.attn.v_proj.weight"],
+                                               weights[f"layers.{layer}.attn.output_proj.weight"],
+                                               weights[f"layers.{layer}.ffn.w1.weight"],
+                                               weights[f"layers.{layer}.ffn.w2.weight"],
+                                               weights[f"layers.{layer}.ffn.w3.weight"],
+                                               x)
+
+    x = run_rmsnorm(d_model, 1e-5, weights['ln_final.weight'], x)
+    x = x @ weights['lm_head.weight'].T
+    return x
 
 
 def run_rmsnorm(
