@@ -1,4 +1,5 @@
 import math
+from typing import Iterable
 
 import torch
 from jaxtyping import Float, Int
@@ -153,3 +154,26 @@ def run_get_lr_cosine_schedule(
 
     cosine_term = 1 + math.cos((it - warmup_iters) * math.pi / (cosine_cycle_iters - warmup_iters))
     return min_learning_rate + 0.5 * (max_learning_rate - min_learning_rate) * cosine_term
+
+
+def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
+    """Given a set of parameters, clip their combined gradients to have l2 norm at most max_l2_norm.
+
+    Args:
+        parameters (Iterable[torch.nn.Parameter]): collection of trainable parameters.
+        max_l2_norm (float): a positive value containing the maximum l2-norm.
+
+    The gradients of the parameters (parameter.grad) should be modified in-place.
+    """
+    summa = sum(((p.grad.data ** 2).sum() for p in parameters if p.grad is not None), start=0.0)
+    g_norm = torch.sqrt(summa)
+
+    if g_norm > max_l2_norm:
+        clip_coef = max_l2_norm / (g_norm + 1e-6)
+
+        for p in parameters:
+
+            if p.grad is None:
+                continue
+
+            p.grad.data.mul_(clip_coef)
