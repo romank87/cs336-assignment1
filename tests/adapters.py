@@ -492,7 +492,16 @@ def run_cross_entropy(
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    raise NotImplementedError
+    maxv = inputs.max(dim=-1, keepdim=True).values
+
+    # log_softmax = log(exp(xi) / sum_j exp(xj))
+    # log_softmax = xi - log(sum_j exp(xj))
+    # log_softmax = xi - (maxv + log(sum_j exp(xj - maxv)))
+    denominator = torch.exp(inputs - maxv).sum(dim=-1, keepdim=True)
+    ll = inputs - (maxv + torch.log(denominator))
+
+    target_ll = ll.gather(-1, targets.unsqueeze(1))
+    return - target_ll.mean()
 
 
 def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
@@ -504,14 +513,25 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    raise NotImplementedError
+    summa = sum(((p.grad.data ** 2).sum() for p in parameters if p.grad is not None), start=0.0)
+    g_norm = torch.sqrt(summa)
+
+    if g_norm > max_l2_norm:
+        clip_coef = max_l2_norm / (g_norm + 1e-6)
+
+        for p in parameters:
+
+            if p.grad is None:
+                continue
+
+            p.grad.data.mul_(clip_coef)
 
 
 def get_adamw_cls() -> Any:
     """
     Returns a torch.optim.Optimizer that implements AdamW.
     """
-    raise NotImplementedError
+    return cs336_basics.MyAdamW
 
 
 def run_get_lr_cosine_schedule(
@@ -539,7 +559,8 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    return cs336_basics.run_get_lr_cosine_schedule(it, max_learning_rate, min_learning_rate, warmup_iters,
+                                                   cosine_cycle_iters)
 
 
 def run_save_checkpoint(
