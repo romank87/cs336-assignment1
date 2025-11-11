@@ -575,11 +575,6 @@ def run_save_checkpoint(
     """
     data = (model.state_dict(), optimizer.state_dict(), iteration)
     torch.save(data, out)
-    # if isinstance(out, (str, os.PathLike)):
-    #     with open(out, 'wb') as f:
-    #         torch.save(data, f)
-    # else:
-    #     torch.save(data, out)
 
 
 def run_load_checkpoint(
