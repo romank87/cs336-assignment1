@@ -1,17 +1,14 @@
 from __future__ import annotations
 
-import io
-import math
 import os
-from collections import defaultdict
 from collections.abc import Iterable
 from typing import IO, Any, BinaryIO
 
-import numpy as np
 import numpy.typing as npt
 import torch
 from jaxtyping import Bool, Float, Int
 from torch import Tensor
+
 import cs336_basics
 
 
@@ -382,24 +379,8 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    x = weights["token_embeddings.weight"][in_indices]
-
-    for layer in range(num_layers):
-        x = cs336_basics.run_transformer_block(d_model, num_heads, d_ff, context_length, rope_theta,
-                                               weights[f"layers.{layer}.ln1.weight"],
-                                               weights[f"layers.{layer}.ln2.weight"],
-                                               weights[f"layers.{layer}.attn.q_proj.weight"],
-                                               weights[f"layers.{layer}.attn.k_proj.weight"],
-                                               weights[f"layers.{layer}.attn.v_proj.weight"],
-                                               weights[f"layers.{layer}.attn.output_proj.weight"],
-                                               weights[f"layers.{layer}.ffn.w1.weight"],
-                                               weights[f"layers.{layer}.ffn.w2.weight"],
-                                               weights[f"layers.{layer}.ffn.w3.weight"],
-                                               x)
-
-    x = run_rmsnorm(d_model, 1e-5, weights['ln_final.weight'], x)
-    x = x @ weights['lm_head.weight'].T
-    return x
+    return cs336_basics.run_transformer_lm(vocab_size, context_length, d_model, num_layers, num_heads, d_ff, rope_theta,
+                                           weights, in_indices)
 
 
 def run_rmsnorm(
@@ -460,11 +441,7 @@ def run_get_batch(
         language modeling labels.
     """
 
-    start_indices = torch.randint(len(dataset) - context_length, size=(batch_size,))
-    x = np.stack([dataset[i:i + context_length] for i in start_indices])
-    y = np.stack([dataset[i + 1:i + context_length + 1] for i in start_indices])
-    return torch.from_numpy(x).to(device), torch.from_numpy(y).to(device)
-
+    return cs336_basics.get_batch(dataset, batch_size, context_length, device)
 
 def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, " ..."]:
     """
