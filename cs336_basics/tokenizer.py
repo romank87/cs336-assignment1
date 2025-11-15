@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import ast
-from email.policy import default
 from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 
 import regex as re
-from tqdm import tqdm
 
 
 class Tokenizer:
@@ -29,6 +27,9 @@ class Tokenizer:
         self.special_tokens = special_tokens if special_tokens is not None else []
 
         self.pat = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
+
+    def vocab_size(self) -> int:
+        return len(self.vocab) + len(self.special_tokens)
 
     @classmethod
     def from_files(
@@ -54,14 +55,13 @@ class Tokenizer:
     def encode(self, text: str) -> List[int]:
         exp = "(" + "|".join([re.escape(token) for token in sorted(self.special_tokens, reverse=True)]) + ")"
 
-        print("Encoding text of length", len(text))
+        # print("Encoding text of length", len(text))
         docs = [text]
         if self.special_tokens:
             docs = re.split(exp, text)
         result = []
-        print("Split done, num docs:", len(docs))
-        for doc in tqdm(docs):
-
+        # print("Split done, num docs:", len(docs))
+        for doc in docs:
             if not doc:
                 continue
             if doc in self.special_tokens:
@@ -75,7 +75,8 @@ class Tokenizer:
                 pairs = {p for p in zip(tokens[:-1], tokens[1:])}
 
                 while True:
-                    min_idx = min((self.merges_index[pair] for pair in pairs if pair in self.merges_index), default=len(self.merges_index))
+                    min_idx = min((self.merges_index[pair] for pair in pairs if pair in self.merges_index),
+                                  default=len(self.merges_index))
                     if min_idx >= len(self.merges_index):
                         break
                     merge = self.merges[min_idx]
@@ -101,8 +102,34 @@ class Tokenizer:
         return [self.invert_vocab[token] for token in result]
 
     def encode_iterable(self, iterable: Iterable[str]) -> Iterator[int]:
-        for it in iterable:
-            for token_id in self.encode(it):
+        """
+        A robust, streaming version of encode that handles chunk boundaries.
+        It expects an iterable of strings (e.g., a file handle) and
+        yields token IDs.
+        """
+
+        special_token_regex = re.compile(
+            "(" + "|".join([re.escape(token) for token in sorted(self.special_tokens, reverse=True)]) + ")"
+        )
+
+        buffer = ""
+        for chunk in iterable:  # chunk is (e.g.) one line from the file
+            buffer += chunk
+
+            parts = special_token_regex.split(buffer)
+
+            for i in range(len(parts) - 1):
+                part = parts[i]
+                if not part:
+                    continue
+
+                for token_id in self.encode(part):
+                    yield token_id
+
+            buffer = parts[-1]
+
+        if buffer:
+            for token_id in self.encode(buffer):
                 yield token_id
 
     def decode(self, ids: List[int]) -> str:
