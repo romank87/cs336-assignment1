@@ -150,8 +150,10 @@ def run_multihead_self_attention_with_rope(
     affinity = q @ k.transpose(-1, -2)  # ...  heads seq_len seq_len
     affinity = affinity / math.sqrt(d_model // num_heads)
 
+    device = in_features.device
+
     seq_len = in_features.shape[-2]
-    triangular_mask = torch.tril(torch.ones((seq_len, seq_len)))
+    triangular_mask = torch.tril(torch.ones((seq_len, seq_len), device=device))
     affinity = affinity.masked_fill(triangular_mask == 0, float("-inf"))
     scores = run_softmax(affinity, dim=-1)
 

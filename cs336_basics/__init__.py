@@ -15,4 +15,4 @@ from .attn import run_scaled_dot_product_attention, run_multihead_self_attention
 from .transformer import run_transformer_block, run_transformer_lm
 from .adamw import MyAdamW
 
-from .utils import get_batch
+from .utils import get_batch, run_cross_entropy

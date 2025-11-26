@@ -5,7 +5,7 @@ import torch
 
 class MyAdamW(torch.optim.Optimizer):
 
-    def __init__(self, params, lr=1e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.01):
+    def __init__(self, params, lr=0.5e-3, betas=(0.9, 0.999), eps=1e-8, weight_decay=0.01):
         beta1, beta2 = betas
 
         defaults = dict(lr=lr, beta1=beta1, beta2=beta2, eps=eps, weight_decay=weight_decay)

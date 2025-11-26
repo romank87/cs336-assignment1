@@ -63,7 +63,7 @@ def run_rope(
         Float[Tensor, " ... sequence_length d_k"]: Tensor with RoPEd input.
     """
 
-    ids = torch.arange(1, d_k // 2 + 1)
+    ids = torch.arange(1, d_k // 2 + 1, device=in_query_or_key.device)
     x = 1 / (theta ** ((2 * ids - 2) / d_k))
 
     token_positions = token_positions.unsqueeze(-1)
@@ -156,7 +156,7 @@ def run_get_lr_cosine_schedule(
     return min_learning_rate + 0.5 * (max_learning_rate - min_learning_rate) * cosine_term
 
 
-def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:
+def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> float:
     """Given a set of parameters, clip their combined gradients to have l2 norm at most max_l2_norm.
 
     Args:
@@ -166,14 +166,15 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
     summa = sum(((p.grad.data ** 2).sum() for p in parameters if p.grad is not None), start=0.0)
-    g_norm = torch.sqrt(summa)
+    g_norm = math.sqrt(summa)
 
     if g_norm > max_l2_norm:
         clip_coef = max_l2_norm / (g_norm + 1e-6)
-
         for p in parameters:
 
             if p.grad is None:
                 continue
 
             p.grad.data.mul_(clip_coef)
+
+    return g_norm

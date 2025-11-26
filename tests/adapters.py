@@ -474,16 +474,7 @@ def run_cross_entropy(
     Returns:
         Float[Tensor, ""]: The average cross-entropy loss across examples.
     """
-    maxv = inputs.max(dim=-1, keepdim=True).values
-
-    # log_softmax = log(exp(xi) / sum_j exp(xj))
-    # log_softmax = xi - log(sum_j exp(xj))
-    # log_softmax = xi - (maxv + log(sum_j exp(xj - maxv)))
-    denominator = torch.exp(inputs - maxv).sum(dim=-1, keepdim=True)
-    ll = inputs - (maxv + torch.log(denominator))
-
-    target_ll = ll.gather(-1, targets.unsqueeze(1))
-    return - target_ll.mean()
+    return cs336_basics.run_cross_entropy(inputs, targets)
 
 
 def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm: float) -> None:

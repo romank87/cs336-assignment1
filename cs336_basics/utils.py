@@ -2,6 +2,8 @@ import numpy as np
 import numpy.typing as npt
 
 import torch
+from jaxtyping import Float, Int
+from torch import Tensor
 
 
 def get_batch(
@@ -28,4 +30,32 @@ def get_batch(
     start_indices = torch.randint(len(dataset) - context_length, size=(batch_size,))
     x = np.stack([dataset[i:i + context_length] for i in start_indices])
     y = np.stack([dataset[i + 1:i + context_length + 1] for i in start_indices])
-    return torch.from_numpy(x).to(device), torch.from_numpy(y).to(device)
+
+    return torch.from_numpy(x).long().to(device), torch.from_numpy(y).long().to(device)
+
+
+def run_cross_entropy(
+        inputs: Float[Tensor, " batch_size vocab_size"], targets: Int[Tensor, " batch_size"]
+) -> Float[Tensor, ""]:
+    """Given a tensor of inputs and targets, compute the average cross-entropy
+    loss across examples.
+
+    Args:
+        inputs (Float[Tensor, "batch_size vocab_size"]): inputs[i][j] is the
+            unnormalized logit of jth class for the ith example.
+        targets (Int[Tensor, "batch_size"]): Tensor of shape (batch_size,) with the index of the correct class.
+            Each value must be between 0 and `num_classes - 1`.
+
+    Returns:
+        Float[Tensor, ""]: The average cross-entropy loss across examples.
+    """
+    maxv = inputs.max(dim=-1, keepdim=True).values
+
+    # log_softmax = log(exp(xi) / sum_j exp(xj))
+    # log_softmax = xi - log(sum_j exp(xj))
+    # log_softmax = xi - (maxv + log(sum_j exp(xj - maxv)))
+    denominator = torch.exp(inputs - maxv).sum(dim=-1, keepdim=True)
+    ll = inputs - (maxv + torch.log(denominator))
+
+    target_ll = ll.gather(-1, targets.unsqueeze(-1))
+    return - target_ll.mean()

@@ -85,7 +85,7 @@ def run_transformer_block(
     """
 
     normalized = run_rmsnorm(d_model, 1e-5, ln1_rope, in_features)
-    token_positions = torch.arange(in_features.shape[1]).unsqueeze(0)
+    token_positions = torch.arange(in_features.shape[1], device=in_features.device).unsqueeze(0)
 
     multihead_attn_output = run_multihead_self_attention_with_rope(d_model, num_heads, max_seq_len, theta,
                                                                    q_proj,
