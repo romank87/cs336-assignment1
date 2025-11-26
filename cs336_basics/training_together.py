@@ -182,25 +182,17 @@ if __name__ == "__main__":
     train_path = args.train_path
     valid_path = args.valid_path
 
-    context_length = args.context_length
-    d_model = args.d_model
-    num_layers = args.num_layers
-    num_heads = args.num_heads
-    d_ff = args.d_ff
-    rope_theta = args.rope_theta
     num_iterations = args.num_iterations
 
     print(f"Using files: \ntrain_path={train_path} \nvalid_path={valid_path}")
 
-    print(f"Using context_length={context_length}, d_model={d_model}, "
-          f"num_layers={num_layers}, num_heads={num_heads}, d_ff={d_ff}, rope_theta={rope_theta}")
+    print(f"Using context_length={args.context_length}, d_model={args.d_model}, "
+          f"num_layers={args.num_layers}, num_heads={args.num_heads}, d_ff={args.d_ff}, rope_theta={args.rope_theta}")
 
-    tokenized_path = "../tokenized-owt-TinyStoriesV2-GPT4-train.bin"
-    print(f"Loading tokenized dataset from {tokenized_path}...")
-
-    dir = "/Users/roman/dev/cs336/assignment1-basics/output/"
-    tokenizer = Tokenizer.from_files(vocab_filepath=f"{dir}/owt_train_vocab.txt",
-                                     merges_filepath=f"{dir}/owt_train_merges.txt",
+    file_dir = os.path.dirname(os.path.abspath(__file__))
+    output_dir = os.path.join(file_dir, "../output")
+    tokenizer = Tokenizer.from_files(vocab_filepath=os.path.join(output_dir, "owt_train_vocab.txt"),
+                                     merges_filepath=os.path.join(output_dir, "owt_train_merges.txt"),
                                      special_tokens=["<|endoftext|>"])
 
     vocab_size = tokenizer.vocab_size()
@@ -209,12 +201,12 @@ if __name__ == "__main__":
     device = "mps"
     model = ModelWrapper(
         vocab_size=vocab_size,
-        context_length=context_length,
-        d_model=d_model,
-        num_layers=num_layers,
-        num_heads=num_heads,
-        d_ff=d_ff,
-        rope_theta=rope_theta,
+        context_length=args.context_length,
+        d_model=args.d_model,
+        num_layers=args.num_layers,
+        num_heads=args.num_heads,
+        d_ff=args.d_ff,
+        rope_theta=args.rope_theta,
         device=device,
     )
 
@@ -234,7 +226,7 @@ if __name__ == "__main__":
     for it in range(1, num_iterations + 1):
         iter_start = time.perf_counter()
 
-        x, y = cs336_basics.get_batch(dataset=train_tensor, context_length=context_length, batch_size=4, device=device)
+        x, y = cs336_basics.get_batch(dataset=train_tensor, context_length=args.context_length, batch_size=4, device=device)
         lr = scheduler.step(it)
         optim.zero_grad()
         out = model.forward(in_indices=x)
@@ -245,11 +237,10 @@ if __name__ == "__main__":
         g_norm = cs336_basics.run_gradient_clipping(model.weights.values(), 1.0)
         if it % 1 == 0:
             elapsed = time.perf_counter() - iter_start
-            print(
-                f"Iteration {it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec")
+            print(f"{it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec")
 
         if it and it % 10 == 0:
-            evaluate(valid_tensor, context_length, model)
+            evaluate(valid_tensor, args.context_length, model)
 
             print("Decoding sample prompt...")
             decode("Once upon a time", model, tokenizer)
