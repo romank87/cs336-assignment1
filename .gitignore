@@ -161,3 +161,7 @@ cython_debug/
 
 .ruff_cache/
 *.zip
+
+# Large OWT tokenized files
+*owt*.bintokenized/tokenized-owt-owt_train.bin
+tokenized/tokenized-tiny-owt_train.bin
