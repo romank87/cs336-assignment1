@@ -55,6 +55,10 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--num_iterations", type=int, default=5000,
                         help="Number of training iterations to run (default: %(default)s).", )
+
+
+    parser.add_argument("--max_tokens", type=int, default=100,
+                        help="Max number of tokens to decode", )
     return parser.parse_args()
 
 
@@ -83,13 +87,13 @@ def evaluate(valid_tensor, context_length, model):
     print(f"Validation perplexity: {ppl:0.3f}")
 
 
-def decode(prompt, model, tokenizer):
+def decode(prompt, max_tokens, model, tokenizer):
     ids = tokenizer.encode(prompt)
     x = torch.tensor(ids).long().unsqueeze(0)
     end_of_text = tokenizer.encode("<|endoftext|>")[0]
     next_token = None
     lst = []
-    max_tokens = 100
+
     while next_token != end_of_text and max_tokens > 0:
         max_tokens -= 1
         out = model.forward(in_indices=x)
@@ -243,6 +247,6 @@ if __name__ == "__main__":
             evaluate(valid_tensor, args.context_length, model)
 
             print("Decoding sample prompt...")
-            decode("Once upon a time", model, tokenizer)
+            decode("Once upon a time", args.max_tokens, model, tokenizer)
 
         optim.step()
