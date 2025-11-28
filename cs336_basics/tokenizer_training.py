@@ -233,9 +233,9 @@ def run_train_bpe(
 
 if __name__ == "__main__":
 
-    for (filename, vocab_size) in [
-        ("TinyStoriesV2-GPT4-train.txt", 10000),
-        ("owt_train.txt", 32000)]:
+    for (filename, name,  vocab_size) in [
+        ("TinyStoriesV2-GPT4-train.txt", "tiny-stories", 10000),
+        ("owt_train.txt", "owt", 32000)]:
 
         input_path = Path(__file__).parent / f"../data/{filename}"
         print(f"\n-----\nWorking on {input_path}")
@@ -249,12 +249,12 @@ if __name__ == "__main__":
         target_dir = Path(input_path).parent / "../tokenizer"
         target_dir.mkdir(exist_ok=True)
 
-        vocab_file = target_dir / f"{Path(input_path).name[:-4]}_vocab.txt"
+        vocab_file = target_dir / f"{name}_vocab.txt"
         with open(vocab_file, "w", encoding="utf-8") as f:
             for item in vocab.items():
                 f.write(f"{item}\n")
 
-        merges_file = target_dir / f"{Path(input_path).name[:-4]}_merges.txt"
+        merges_file = target_dir / f"{name}_merges.txt"
         with open(merges_file, "w", encoding="utf-8") as f:
             for merge in merges:
                 f.write(f"{merge}\n")
