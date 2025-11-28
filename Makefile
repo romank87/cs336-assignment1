@@ -1,4 +1,4 @@
-.PHONY: download-data test clean
+.PHONY: download-data test train-tokenizer clean
 
 download-data:
 	mkdir -p data
@@ -12,6 +12,9 @@ download-data:
 
 test:
 	uv run pytest
+
+train-tokenizer:
+	uv run cs336_basics/tokenizer_training.py
 
 clean:
 	rm -rf data/*.txt data/*.gz

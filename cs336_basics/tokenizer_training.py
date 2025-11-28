@@ -233,9 +233,9 @@ def run_train_bpe(
 
 if __name__ == "__main__":
 
-    for (filename, vocab_size) in [("TinyStoriesV2-GPT4-valid.txt", 1000),
-                                   ("TinyStoriesV2-GPT4-train.txt", 10000),
-                                   ("owt_train.txt", 32000)]:
+    for (filename, vocab_size) in [
+        ("TinyStoriesV2-GPT4-train.txt", 10000),
+        ("owt_train.txt", 32000)]:
 
         input_path = Path(__file__).parent / f"../data/{filename}"
         print(f"\n-----\nWorking on {input_path}")
@@ -246,7 +246,7 @@ if __name__ == "__main__":
             special_tokens=["<|endoftext|>"],
         )
         print("Done, saving data")
-        target_dir = Path(input_path).parent / "../output"
+        target_dir = Path(input_path).parent / "../tokenizer"
         target_dir.mkdir(exist_ok=True)
 
         vocab_file = target_dir / f"{Path(input_path).name[:-4]}_vocab.txt"
