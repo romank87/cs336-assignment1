@@ -234,7 +234,7 @@ def run_train_bpe(
 if __name__ == "__main__":
 
     for (filename, name,  vocab_size) in [
-        ("TinyStoriesV2-GPT4-train.txt", "tiny-stories", 10000),
+        ("TinyStoriesV2-GPT4-train.txt", "tiny_stories", 10000),
         ("owt_train.txt", "owt", 32000)]:
 
         input_path = Path(__file__).parent / f"../data/{filename}"
