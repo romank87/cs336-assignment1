@@ -1,6 +1,7 @@
 import heapq
 import os
 import pickle
+import time
 from collections import defaultdict
 from multiprocessing import Process
 from pathlib import Path
@@ -233,9 +234,10 @@ def run_train_bpe(
 
 if __name__ == "__main__":
 
-    for (filename, name,  vocab_size) in [
+    for (filename, name, vocab_size) in [
         ("TinyStoriesV2-GPT4-train.txt", "tiny_stories", 10000),
         ("owt_train.txt", "owt", 32000)]:
+        start = time.perf_counter()
 
         input_path = Path(__file__).parent / f"../data/{filename}"
         print(f"\n-----\nWorking on {input_path}")
@@ -261,3 +263,4 @@ if __name__ == "__main__":
 
         print(f"Wrote vocab to {vocab_file}")
         print(f"Wrote merges to {merges_file}")
+        print(f"Processed {filename} in {time.perf_counter() - start:.2f} seconds")
