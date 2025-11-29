@@ -1,4 +1,4 @@
-.PHONY: download-data test train-tokenizer clean
+.PHONY: download-data test train-tokenizer tokenize-tinystories tokenize-owt tokenize clean
 
 download-data:
 	mkdir -p data
@@ -15,6 +15,30 @@ test:
 
 train-tokenizer:
 	uv run cs336_basics/tokenizer_training.py
+
+tokenize-tinystories:
+	mkdir -p tokenized
+	uv run cs336_basics/tokenizer.py \
+		--tokenizer-dir tokenizer/tiny_stories \
+		--dataset data/TinyStoriesV2-GPT4-train.txt \
+		--output-dir tokenized
+	uv run cs336_basics/tokenizer.py \
+		--tokenizer-dir tokenizer/tiny_stories \
+		--dataset data/TinyStoriesV2-GPT4-valid.txt \
+		--output-dir tokenized
+
+tokenize-owt:
+	mkdir -p tokenized
+	uv run cs336_basics/tokenizer.py \
+		--tokenizer-dir tokenizer/owt \
+		--dataset data/owt_train.txt \
+		--output-dir tokenized
+	uv run cs336_basics/tokenizer.py \
+		--tokenizer-dir tokenizer/owt \
+		--dataset data/owt_valid.txt \
+		--output-dir tokenized
+
+tokenize: tokenize-tinystories tokenize-owt
 
 clean:
 	rm -rf data/*.txt data/*.gz

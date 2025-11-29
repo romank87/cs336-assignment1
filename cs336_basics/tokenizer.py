@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+import os
 import ast
 from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 
@@ -30,6 +30,12 @@ class Tokenizer:
 
     def vocab_size(self) -> int:
         return len(self.vocab) + len(self.special_tokens)
+
+    @classmethod
+    def from_dir(cls, dir: str, special_tokens: Optional[List[str]] = None, ) -> "Tokenizer":
+        vocab_path = os.path.join(dir, "vocab.txt")
+        merges_path = os.path.join(dir, "merges.txt")
+        return cls.from_files(vocab_path, merges_path, special_tokens=special_tokens)
 
     @classmethod
     def from_files(
@@ -138,8 +144,39 @@ class Tokenizer:
 
 
 if __name__ == "__main__":
-    dir = "/Users/roman/dev/cs336/assignment1-basics/output/"
+    import argparse
+    from pathlib import Path
+    from tqdm import tqdm
 
-    tokenizer = Tokenizer.from_files(vocab_filepath=f"{dir}/owt_train_vocab.txt",
-                                     merges_filepath=f"{dir}/owt_train_merges.txt",
-                                     special_tokens=["<|endoftext|>"])
+    # Get the directory where this script is located
+    script_dir = Path(__file__).parent.resolve()
+
+    parser = argparse.ArgumentParser(description="Tokenize datasets using a trained BPE tokenizer")
+    parser.add_argument("--tokenizer-dir", type=str, default=str(script_dir / "../tokenizer/tiny_stories"), help="Directory containing vocab.txt and merges.txt")
+    parser.add_argument("--dataset", type=str, default=str(script_dir / "../data/TinyStoriesV2-GPT4-train.txt"), help="Path to input dataset file")
+    parser.add_argument("--output-dir", type=str, default=str(script_dir / "../tokenized"), help="Directory to save tokenized output")
+
+    args = parser.parse_args()
+
+    print(f"Loading tokenizer from {args.tokenizer_dir}")
+    tokenizer = Tokenizer.from_dir(str(args.tokenizer_dir), special_tokens=["<|endoftext|>"])
+
+    # Create output filename based on tokenizer and dataset names
+    tokenizer_name = args.tokenizer_dir.name
+    dataset_name = args.dataset_path.stem  # filename without extension
+    output_filename = f"tokenized-{tokenizer_name}-{dataset_name}.bin"
+    output_path = args.output_dir / output_filename
+
+    # Create output directory if needed
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"Tokenizing {args.dataset_path}")
+    print(f"Output: {output_path}")
+
+    # Tokenize
+    with open(args.dataset_path, "r", encoding="utf-8") as f_in:
+        with open(output_path, "wb") as f_out:
+            for token in tqdm(tokenizer.encode_iterable(f_in), desc="Tokenizing"):
+                f_out.write(token.to_bytes(2, 'little', signed=False))
+
+    print(f"Done! Output saved to {output_path}")
