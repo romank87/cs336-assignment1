@@ -248,15 +248,15 @@ if __name__ == "__main__":
             special_tokens=["<|endoftext|>"],
         )
         print("Done, saving data")
-        target_dir = Path(input_path).parent / "../tokenizer"
+        target_dir = Path(input_path).parent / f"../tokenizer/{name}"
         target_dir.mkdir(exist_ok=True)
 
-        vocab_file = target_dir / f"{name}_vocab.txt"
+        vocab_file = target_dir / f"vocab.txt"
         with open(vocab_file, "w", encoding="utf-8") as f:
             for item in vocab.items():
                 f.write(f"{item}\n")
 
-        merges_file = target_dir / f"{name}_merges.txt"
+        merges_file = target_dir / f"merges.txt"
         with open(merges_file, "w", encoding="utf-8") as f:
             for merge in merges:
                 f.write(f"{merge}\n")
