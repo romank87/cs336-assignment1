@@ -158,23 +158,28 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    print(f"Loading tokenizer from {args.tokenizer_dir}")
-    tokenizer = Tokenizer.from_dir(str(args.tokenizer_dir), special_tokens=["<|endoftext|>"])
+    # Convert to Path objects
+    tokenizer_dir = Path(args.tokenizer_dir)
+    dataset_path = Path(args.dataset)
+    output_dir = Path(args.output_dir)
+
+    print(f"Loading tokenizer from {tokenizer_dir}")
+    tokenizer = Tokenizer.from_dir(str(tokenizer_dir), special_tokens=["<|endoftext|>"])
 
     # Create output filename based on tokenizer and dataset names
-    tokenizer_name = args.tokenizer_dir.name
-    dataset_name = args.dataset_path.stem  # filename without extension
+    tokenizer_name = tokenizer_dir.name
+    dataset_name = dataset_path.stem  # filename without extension
     output_filename = f"tokenized-{tokenizer_name}-{dataset_name}.bin"
-    output_path = args.output_dir / output_filename
+    output_path = output_dir / output_filename
 
     # Create output directory if needed
-    args.output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Tokenizing {args.dataset_path}")
+    print(f"Tokenizing {dataset_path}")
     print(f"Output: {output_path}")
 
     # Tokenize
-    with open(args.dataset_path, "r", encoding="utf-8") as f_in:
+    with open(dataset_path, "r", encoding="utf-8") as f_in:
         with open(output_path, "wb") as f_out:
             for token in tqdm(tokenizer.encode_iterable(f_in), desc="Tokenizing"):
                 f_out.write(token.to_bytes(2, 'little', signed=False))
