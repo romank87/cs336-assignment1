@@ -31,6 +31,11 @@ def parse_args() -> argparse.Namespace:
     )
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
+
+    parser.add_argument("--tokenizer_dir", type=str,
+                        default=os.path.join(file_dir, "../tokenizer/owt"),
+                        help="Path to tokenizer dir. Two files vocab.txt and merges.txt are expected in there.")
+
     parser.add_argument("--train_path", type=str,
                         default=os.path.join(file_dir, "../tokenized", "tokenized-owt-TinyStoriesV2-GPT4-train.bin"),
                         help="Path to the training data file.")
@@ -203,11 +208,7 @@ if __name__ == "__main__":
     print(f"Using context_length={args.context_length}, d_model={args.d_model}, "
           f"num_layers={args.num_layers}, num_heads={args.num_heads}, d_ff={args.d_ff}, rope_theta={args.rope_theta}")
 
-    file_dir = os.path.dirname(os.path.abspath(__file__))
-    output_dir = os.path.join(file_dir, "../output")
-    tokenizer = Tokenizer.from_files(vocab_filepath=os.path.join(output_dir, "owt_train_vocab.txt"),
-                                     merges_filepath=os.path.join(output_dir, "owt_train_merges.txt"),
-                                     special_tokens=["<|endoftext|>"])
+    tokenizer = Tokenizer.from_dir(args.tokenizer_dir, special_tokens=["<|endoftext|>"])
 
     vocab_size = tokenizer.vocab_size()
     print(f"Loaded tokenizer with vocab size {vocab_size}.")
