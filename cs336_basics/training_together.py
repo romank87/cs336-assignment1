@@ -56,7 +56,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num_iterations", type=int, default=5000,
                         help="Number of training iterations to run (default: %(default)s).", )
 
-
     parser.add_argument("--max_tokens", type=int, default=100,
                         help="Max number of tokens to decode", )
     return parser.parse_args()
@@ -79,7 +78,6 @@ def evaluate(valid_tensor, context_length, model):
                 inputs=out[:, -1, :],
                 targets=targets, )
 
-            # print(single)
             acc += res.item()
             count += 1
 
@@ -87,7 +85,7 @@ def evaluate(valid_tensor, context_length, model):
     print(f"Validation perplexity: {ppl:0.3f}")
 
 
-def decode(prompt, max_tokens, model, tokenizer):
+def decode(prompt, max_tokens, model, tokenizer, temperature=1.0):
     ids = tokenizer.encode(prompt)
     x = torch.tensor(ids).long().unsqueeze(0)
     end_of_text = tokenizer.encode("<|endoftext|>")[0]
@@ -98,7 +96,9 @@ def decode(prompt, max_tokens, model, tokenizer):
         max_tokens -= 1
         out = model.forward(in_indices=x)
 
-        indices = torch.max(cs336_basics.run_softmax(out, dim=-1), dim=-1).indices
+        indices = torch.max(cs336_basics.run_softmax_with_temperature(out, dim=-1, temperature=temperature),
+                            dim=-1).indices
+
         next_token = indices[0, -1].item()
 
         lst.append(next_token)
@@ -230,7 +230,8 @@ if __name__ == "__main__":
     for it in range(1, num_iterations + 1):
         iter_start = time.perf_counter()
 
-        x, y = cs336_basics.get_batch(dataset=train_tensor, context_length=args.context_length, batch_size=4, device=device)
+        x, y = cs336_basics.get_batch(dataset=train_tensor, context_length=args.context_length, batch_size=4,
+                                      device=device)
         lr = scheduler.step(it)
         optim.zero_grad()
         out = model.forward(in_indices=x)
@@ -241,7 +242,8 @@ if __name__ == "__main__":
         g_norm = cs336_basics.run_gradient_clipping(model.weights.values(), 1.0)
         if it % 1 == 0:
             elapsed = time.perf_counter() - iter_start
-            print(f"{it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec")
+            print(
+                f"{it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec")
 
         if it and it % 10 == 0:
             evaluate(valid_tensor, args.context_length, model)

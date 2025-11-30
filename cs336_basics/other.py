@@ -120,6 +120,30 @@ def run_softmax(in_features: Float[Tensor, " ..."], dim: int) -> Float[Tensor, "
     return torch.exp(x) / denominator
 
 
+def run_softmax_with_temperature(in_features: Float[Tensor, " ..."], dim: int, temperature: float) -> Float[
+    Tensor, " ..."]:
+    """
+    Given a tensor of inputs, return the output of softmaxing the given `dim`
+    of the input.
+
+    Args:
+        in_features (Float[Tensor, "..."]): Input features to softmax. Shape is arbitrary.
+        dim (int): Dimension of the `in_features` to apply softmax to.
+        temperature (float): Temperature to use in softmax.
+
+    Returns:
+        Float[Tensor, "..."]: Tensor of with the same shape as `in_features` with the output of
+        softmax normalizing the specified `dim`.
+    """
+
+
+    x = in_features - torch.max(in_features, dim=dim, keepdim=True).values
+    x = x / temperature
+    exp_x = torch.exp(x)
+    denominator = torch.sum(exp_x, dim=dim, keepdim=True)
+    return exp_x / denominator
+
+
 def run_get_lr_cosine_schedule(
         it: int,
         max_learning_rate: float,
