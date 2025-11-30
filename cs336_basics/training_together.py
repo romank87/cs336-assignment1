@@ -272,6 +272,7 @@ if __name__ == "__main__":
             decode("Once upon a time", args.max_tokens, model, tokenizer, temperature=args.temperature)
 
             data = (model.state_dict(), optim.state_dict(), it)
+            print(f"Saving model to {args.save_model_path}...")
             torch.save(data, args.save_model_path)
 
         optim.step()
