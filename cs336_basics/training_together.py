@@ -31,6 +31,9 @@ def parse_args() -> argparse.Namespace:
     )
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
+    parser.add_argument("--save_model_path", type=str,
+                        default=os.path.join(file_dir, "/home/ray/efs/team/romank/cs336/model"),
+                        help="Path to save model to")
 
     parser.add_argument("--tokenizer_dir", type=str,
                         default=os.path.join(file_dir, "../tokenizer/owt"),
@@ -99,6 +102,11 @@ def evaluate(valid_tensor, context_length, model):
     print(f"Validation perplexity: {ppl:0.3f}")
 
 
+def sample_from_probs(probs):
+    sorted_vec, indices = torch.sort(probs, descending=True)
+
+
+
 def decode(prompt, max_tokens, model, tokenizer, temperature=1.0):
     ids = tokenizer.encode(prompt)
     x = torch.tensor(ids).long().unsqueeze(0)
@@ -111,6 +119,7 @@ def decode(prompt, max_tokens, model, tokenizer, temperature=1.0):
         out = model.forward(in_indices=x)
 
         probs = cs336_basics.run_softmax_with_temperature(out, dim=-1, temperature=temperature)
+
 
         indices = torch.max(probs, dim=-1).indices
 
@@ -261,5 +270,8 @@ if __name__ == "__main__":
 
             print("Decoding sample prompt...")
             decode("Once upon a time", args.max_tokens, model, tokenizer, temperature=args.temperature)
+
+            data = (model.state_dict(), optim.state_dict(), it)
+            torch.save(data, args.save_model_path)
 
         optim.step()
