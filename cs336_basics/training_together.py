@@ -63,7 +63,7 @@ def parse_args() -> argparse.Namespace:
                         help="Temperature", )
 
 
-    parser.add_argument("--device", type=float, default=0.7,
+    parser.add_argument("--device", type=str, default="cpu",
                         help="Device to use for training. examples: cuda:0, mps, cpu", )
     return parser.parse_args()
 
