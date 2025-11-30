@@ -32,7 +32,7 @@ def parse_args() -> argparse.Namespace:
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
     parser.add_argument("--save_model_path", type=str,
-                        default=os.path.join(file_dir, "/home/ray/efs/team/romank/cs336/model"),
+                        default=os.path.join(file_dir, "/home/ray/efs/team/romank/model/model.bin"),
                         help="Path to save model to")
 
     parser.add_argument("--tokenizer_dir", type=str,
@@ -79,7 +79,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def evaluate(valid_tensor, context_length, model):
-    stride = 10000
+    stride = 50000
     acc, count = 0.0, 0
     with torch.no_grad():
         for start in range(0, len(valid_tensor) - context_length - 1, stride):
@@ -106,7 +106,6 @@ def sample_from_probs(probs):
     sorted_vec, indices = torch.sort(probs, descending=True)
 
 
-
 def decode(prompt, max_tokens, model, tokenizer, temperature=1.0):
     ids = tokenizer.encode(prompt)
     x = torch.tensor(ids).long().unsqueeze(0)
@@ -119,7 +118,6 @@ def decode(prompt, max_tokens, model, tokenizer, temperature=1.0):
         out = model.forward(in_indices=x)
 
         probs = cs336_basics.run_softmax_with_temperature(out, dim=-1, temperature=temperature)
-
 
         indices = torch.max(probs, dim=-1).indices
 
@@ -260,12 +258,12 @@ if __name__ == "__main__":
         loss.backward()
 
         g_norm = cs336_basics.run_gradient_clipping(model.weights.values(), 1.0)
-        if it % 1 == 0:
-            elapsed = time.perf_counter() - iter_start
-            print(
-                f"{it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec")
 
         if it and it % args.eval_every == 0:
+            elapsed = time.perf_counter() - iter_start
+            print(
+                f"{it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec/iter")
+
             evaluate(valid_tensor, args.context_length, model)
 
             print("Decoding sample prompt...")
