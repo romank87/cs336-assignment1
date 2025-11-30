@@ -4,7 +4,7 @@ import os
 import time
 import numpy as np
 import torch
-from jaxtyping import Int
+from jaxtyping import Int, Float
 from torch import Tensor
 
 import cs336_basics
@@ -32,8 +32,8 @@ def parse_args() -> argparse.Namespace:
     file_dir = os.path.dirname(os.path.abspath(__file__))
 
     parser.add_argument("--save_model_path", type=str,
-                        default=os.path.join(file_dir, "/home/ray/efs/team/romank/model/model.bin"),
-                        help="Path to save model to")
+                        default=None,
+                        help="Path to save model to. If not provided, won't save the model.")
 
     parser.add_argument("--tokenizer_dir", type=str,
                         default=os.path.join(file_dir, "../tokenizer/owt"),
@@ -102,11 +102,29 @@ def evaluate(valid_tensor, context_length, model):
     print(f"Validation perplexity: {ppl:0.3f}")
 
 
-def sample_from_probs(probs):
-    sorted_vec, indices = torch.sort(probs, descending=True)
+def next_tokens(logits: Float[Tensor, " bs len vocab_size"], temperature: float, p: float) -> Int[Tensor, " bs"]:
+    """ Sample next tokens from the given logits using nucleus sampling (top-p sampling).
+    Returns a tensor of shape (batch_size,) with the sampled token indices."""
+
+    # keep only last token, no need to process all previous tokens
+    last_logits = logits[:, -1, :]
+
+    probs = cs336_basics.run_softmax_with_temperature(last_logits, dim=-1, temperature=temperature)
+
+    sorted_probs, indices = torch.sort(probs, dim=-1, descending=True)
+    cumsum = torch.cumsum(sorted_probs, dim=-1)
+
+    mask = (cumsum - sorted_probs) < p
+    masked_probs = mask * sorted_probs
+
+    selected = torch.multinomial(masked_probs, num_samples=1)
+
+    result = torch.gather(indices, dim=-1, index=selected)
+
+    return result.reshape((-1,))
 
 
-def decode(prompt, max_tokens, model, tokenizer, temperature=1.0):
+def decode(prompt, max_tokens, model, tokenizer, temperature=1.0, p=0.9):
     ids = tokenizer.encode(prompt)
     x = torch.tensor(ids).long().unsqueeze(0)
     end_of_text = tokenizer.encode("<|endoftext|>")[0]
@@ -116,13 +134,9 @@ def decode(prompt, max_tokens, model, tokenizer, temperature=1.0):
     while next_token != end_of_text and max_tokens > 0:
         max_tokens -= 1
         out = model.forward(in_indices=x)
+        token_indices = next_tokens(out, temperature=temperature, p=p)
 
-        probs = cs336_basics.run_softmax_with_temperature(out, dim=-1, temperature=temperature)
-
-        indices = torch.max(probs, dim=-1).indices
-
-        next_token = indices[0, -1].item()
-
+        next_token = token_indices[0].item()
         lst.append(next_token)
         # print(f"Next token: {next_token} ('{tokenizer.decode([next_token])}')")
 
@@ -218,7 +232,7 @@ if __name__ == "__main__":
     tokenizer = Tokenizer.from_dir(args.tokenizer_dir, special_tokens=["<|endoftext|>"])
 
     vocab_size = tokenizer.vocab_size()
-    print(f"Loaded tokenizer with vocab size {vocab_size}.")
+    print(f"Loaded tokenizer ({args.tokenizer_dir}) with vocab size {vocab_size}.")
 
     device = args.device
     model = ModelWrapper(
@@ -259,6 +273,9 @@ if __name__ == "__main__":
 
         g_norm = cs336_basics.run_gradient_clipping(model.weights.values(), 1.0)
 
+        if args.eval_every >= 10 and it and it % (args.eval_every // 10) == 0:
+            print(".", end="", flush=True)
+
         if it and it % args.eval_every == 0:
             elapsed = time.perf_counter() - iter_start
             print(
@@ -269,8 +286,9 @@ if __name__ == "__main__":
             print("Decoding sample prompt...")
             decode("Once upon a time", args.max_tokens, model, tokenizer, temperature=args.temperature)
 
-            data = (model.state_dict(), optim.state_dict(), it)
-            print(f"Saving model to {args.save_model_path}...")
-            torch.save(data, args.save_model_path)
+            if args.save_model_path is not None:
+                data = (model.state_dict(), optim.state_dict(), it)
+                print(f"Saving model to {args.save_model_path}...")
+                torch.save(data, args.save_model_path)
 
         optim.step()
