@@ -61,6 +61,10 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--temperature", type=float, default=0.7,
                         help="Temperature", )
+
+
+    parser.add_argument("--device", type=float, default=0.7,
+                        help="Device to use for training. examples: cuda:0, mps, cpu", )
     return parser.parse_args()
 
 
@@ -206,7 +210,7 @@ if __name__ == "__main__":
     vocab_size = tokenizer.vocab_size()
     print(f"Loaded tokenizer with vocab size {vocab_size}.")
 
-    device = "mps"
+    device = args.device
     model = ModelWrapper(
         vocab_size=vocab_size,
         context_length=args.context_length,
