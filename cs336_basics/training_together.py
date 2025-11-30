@@ -62,9 +62,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--temperature", type=float, default=0.7,
                         help="Temperature", )
 
-
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device to use for training. examples: cuda:0, mps, cpu", )
+
+    parser.add_argument("--eval_every", type=int, default=10,
+                        help="Evaluate every N iterations (default: %(default)s).", )
     return parser.parse_args()
 
 
@@ -253,7 +255,7 @@ if __name__ == "__main__":
             print(
                 f"{it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec")
 
-        if it and it % 10 == 0:
+        if it and it % args.eval_every == 0:
             evaluate(valid_tensor, args.context_length, model)
 
             print("Decoding sample prompt...")
