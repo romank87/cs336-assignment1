@@ -67,14 +67,18 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max_tokens", type=int, default=100,
                         help="Max number of tokens to decode", )
 
-    parser.add_argument("--temperature", type=float, default=0.7,
-                        help="Temperature", )
-
     parser.add_argument("--device", type=str, default="cpu",
                         help="Device to use for training. examples: cuda:0, mps, cpu", )
 
     parser.add_argument("--eval_every", type=int, default=10,
                         help="Evaluate every N iterations (default: %(default)s).", )
+
+    parser.add_argument("--temperature", type=float, default=0.7,
+                        help="Temperature", )
+
+    parser.add_argument("--p", type=float, default=0.9,
+                        help="Nucleus sampling parameter p (default: %(default)s).", )
+
     return parser.parse_args()
 
 
@@ -284,7 +288,7 @@ if __name__ == "__main__":
             evaluate(valid_tensor, args.context_length, model)
 
             print("Decoding sample prompt...")
-            decode("Once upon a time", args.max_tokens, model, tokenizer, temperature=args.temperature)
+            decode("Once upon a time", args.max_tokens, model, tokenizer, temperature=args.temperature, p=args.p)
 
             if args.save_model_path is not None:
                 data = (model.state_dict(), optim.state_dict(), it)
