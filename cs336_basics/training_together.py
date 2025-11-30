@@ -58,6 +58,9 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--max_tokens", type=int, default=100,
                         help="Max number of tokens to decode", )
+
+    parser.add_argument("--temperature", type=float, default=0.7,
+                        help="Temperature", )
     return parser.parse_args()
 
 
@@ -96,8 +99,9 @@ def decode(prompt, max_tokens, model, tokenizer, temperature=1.0):
         max_tokens -= 1
         out = model.forward(in_indices=x)
 
-        indices = torch.max(cs336_basics.run_softmax_with_temperature(out, dim=-1, temperature=temperature),
-                            dim=-1).indices
+        probs = cs336_basics.run_softmax_with_temperature(out, dim=-1, temperature=temperature)
+
+        indices = torch.max(probs, dim=-1).indices
 
         next_token = indices[0, -1].item()
 
@@ -249,6 +253,6 @@ if __name__ == "__main__":
             evaluate(valid_tensor, args.context_length, model)
 
             print("Decoding sample prompt...")
-            decode("Once upon a time", args.max_tokens, model, tokenizer)
+            decode("Once upon a time", args.max_tokens, model, tokenizer, temperature=args.temperature)
 
         optim.step()
