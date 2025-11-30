@@ -196,16 +196,14 @@ def run_gradient_clipping(parameters: Iterable[torch.nn.Parameter], max_l2_norm:
 
     The gradients of the parameters (parameter.grad) should be modified in-place.
     """
-    summa = sum(((p.grad.data ** 2).sum() for p in parameters if p.grad is not None), start=0.0)
+    params_list = list(filter(lambda p: p.grad is not None, parameters))
+
+    summa = sum(((p.grad.data ** 2).sum() for p in params_list), start=0.0)
     g_norm = math.sqrt(summa)
 
     if g_norm > max_l2_norm:
         clip_coef = max_l2_norm / (g_norm + 1e-6)
-        for p in parameters:
-
-            if p.grad is None:
-                continue
-
+        for p in params_list:
             p.grad.data.mul_(clip_coef)
 
     return g_norm
