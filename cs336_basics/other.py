@@ -136,12 +136,19 @@ def run_softmax_with_temperature(in_features: Float[Tensor, " ..."], dim: int, t
         softmax normalizing the specified `dim`.
     """
 
-
     x = in_features - torch.max(in_features, dim=dim, keepdim=True).values
-    x = x / temperature
-    exp_x = torch.exp(x)
-    denominator = torch.sum(exp_x, dim=dim, keepdim=True)
-    return exp_x / denominator
+    if temperature < 1e-5:
+        argmax_indices = torch.argmax(in_features, dim=dim, keepdim=True)
+
+        result = torch.zeros_like(in_features)
+
+        result.scatter_(dim, argmax_indices, 1.0)
+        return result
+    else:
+        x = x / temperature
+        exp_x = torch.exp(x)
+        denominator = torch.sum(exp_x, dim=dim, keepdim=True)
+        return exp_x / denominator
 
 
 def run_get_lr_cosine_schedule(
