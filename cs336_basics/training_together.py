@@ -4,6 +4,7 @@ import os
 import time
 import numpy as np
 import torch
+import wandb
 from jaxtyping import Int, Float
 from torch import Tensor
 
@@ -104,6 +105,7 @@ def evaluate(valid_tensor, context_length, model):
 
     ppl = math.exp(acc / count)
     print(f"Validation perplexity: {ppl:0.3f}")
+    return ppl
 
 
 def next_tokens(logits: Float[Tensor, " bs len vocab_size"], temperature: float, p: float) -> Int[Tensor, " bs"]:
@@ -263,6 +265,21 @@ if __name__ == "__main__":
     Tc = num_iterations
     scheduler = LRScheduler(optim, lambda t: cs336_basics.run_get_lr_cosine_schedule(t, alpha_max, alpha_min, Tw, Tc))
 
+    wandb.init(
+        project="cs336",
+        settings=wandb.Settings(base_url="https://wandb.gnlp.io"),
+        config={
+            "context_length": args.context_length,
+            "d_model": args.d_model,
+            "num_layers": args.num_layers,
+            "num_heads": args.num_heads,
+            "d_ff": args.d_ff,
+            "num_iterations": args.num_iterations,
+            "lr_max": alpha_max,
+            "lr_min": alpha_min,
+        }
+    )
+
     for it in range(1, num_iterations + 1):
         iter_start = time.perf_counter()
 
@@ -277,6 +294,14 @@ if __name__ == "__main__":
 
         g_norm = cs336_basics.run_gradient_clipping(model.weights.values(), 1.0)
 
+        if it and it % 10 == 0:
+            wandb.log({
+                "train/loss": loss.item(),
+                "train/lr": lr,
+                "train/grad_norm": g_norm,
+                "iteration": it,
+            })
+
         if args.eval_every >= 10 and it and it % (args.eval_every // 10) == 0:
             print(".", end="", flush=True)
 
@@ -285,14 +310,18 @@ if __name__ == "__main__":
             print(
                 f"{it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec/iter")
 
-            evaluate(valid_tensor, args.context_length, model)
+            ppl = evaluate(valid_tensor, args.context_length, model)
+            wandb.log({"eval/perplexity": ppl, "iteration": it})
 
             print("Decoding sample prompt...")
             decode("Once upon a time", args.max_tokens, model, tokenizer, temperature=args.temperature, p=args.p)
 
             if args.save_model_path is not None:
                 data = (model.state_dict(), optim.state_dict(), it)
-                print(f"Saving model to {args.save_model_path}...")
+                print(f"Saving model to {args.save_model_path}...", end="", flush=True)
                 torch.save(data, args.save_model_path)
+                print(" done.")
 
         optim.step()
+
+    wandb.finish()
