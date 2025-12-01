@@ -265,9 +265,10 @@ if __name__ == "__main__":
     Tc = num_iterations
     scheduler = LRScheduler(optim, lambda t: cs336_basics.run_get_lr_cosine_schedule(t, alpha_max, alpha_min, Tw, Tc))
 
+    wandb_base_url = os.getenv("WANDB_BASE_URL", "https://wandb.gnlp.io")
     wandb.init(
         project="cs336",
-        settings=wandb.Settings(base_url="https://wandb.gnlp.io"),
+        settings=wandb.Settings(base_url=wandb_base_url),
         config={
             "context_length": args.context_length,
             "d_model": args.d_model,
