@@ -99,7 +99,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def evaluate(valid_tensor, context_length, model):
-    stride = 50000
+    stride = 10000
     acc, count = 0.0, 0
     with torch.no_grad():
         for start in range(0, len(valid_tensor) - context_length - 1, stride):
