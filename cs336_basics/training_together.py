@@ -51,13 +51,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--context_length", type=int, default=256,
                         help="Number of tokens per training example (default: %(default)s).", )
 
-    parser.add_argument("--d_model", type=int, default=1024 * 2,
+    parser.add_argument("--d_model", type=int, default=512,
                         help="Transformer hidden size (default: %(default)s).", )
-    parser.add_argument("--num_layers", type=int, default=2,
+    parser.add_argument("--num_layers", type=int, default=4,
                         help="Number of Transformer blocks (default: %(default)s).", )
     parser.add_argument("--num_heads", type=int, default=16,
                         help="Attention heads per layer (default: %(default)s).", )
-    parser.add_argument("--d_ff", type=int, default=1024 * 4,
+    parser.add_argument("--d_ff", type=int, default=11344,
                         help="Feed-forward hidden size (default: %(default)s).", )
     parser.add_argument("--rope_theta", type=float, default=10000.0,
                         help="RoPE theta parameter (default: %(default)s).", )
