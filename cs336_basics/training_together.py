@@ -251,20 +251,22 @@ if __name__ == "__main__":
     alpha_max = wandb.config.get("alpha_max", 1e-3)
     alpha_min = wandb.config.get("alpha_min", 1e-5)
 
+
+    num_iterations = args.training_budget // (args.batch_size * args.context_length)
+    print(f"Will run training for {num_iterations} iterations. Training budget: {args.training_budget} tokens. ")
+
     wandb.config.update({
         "context_length": args.context_length,
         "d_model": args.d_model,
         "num_layers": args.num_layers,
         "num_heads": args.num_heads,
         "d_ff": args.d_ff,
-        "num_iterations": args.num_iterations,
         "alpha_max": alpha_max,
         "alpha_min": alpha_min,
     })
 
     train_path = args.train_path
     valid_path = args.valid_path
-    # num_iterations = args.num_iterations
 
     print(f"Using files: \ntrain_path={train_path} \nvalid_path={valid_path}")
 
@@ -294,8 +296,6 @@ if __name__ == "__main__":
 
     optim = cs336_basics.MyAdamW(params=[w for w in model.weights.values()])
 
-    num_iterations = args.training_budget // (args.batch_size * args.context_length)
-    print(f"Will run training for {num_iterations} iterations.")
     Tw = 100
     Tc = num_iterations
     scheduler = LRScheduler(optim, lambda t: cs336_basics.run_get_lr_cosine_schedule(t, alpha_max, alpha_min, Tw, Tc))
