@@ -88,6 +88,13 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--training_budget", type=int, default=327680000,
                         help="Training budget in number of tokens (default: %(default)s).", )
+
+    parser.add_argument("--alpha_max", type=float, default=1e-3,
+                        help="Max learning rate (default: %(default)s).", )
+
+    parser.add_argument("--alpha_min", type=float, default=1e-5,
+                        help="Min learning rate (default: %(default)s).", )
+
     return parser.parse_args()
 
 
