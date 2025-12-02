@@ -1,5 +1,12 @@
 program: cs336_basics/training_together.py
 method: bayes
+command:
+  - ${env}
+  - uv
+  - run
+  - python
+  - ${program}
+  - ${args}
 metric:
   name: eval/perplexity
   goal: minimize
