@@ -6,6 +6,12 @@ command:
   - run
   - python
   - ${program}
+  - --tokenizer_dir=tokenizer/tiny/
+  - --train_path=tokenized/tokenized-tiny-TinyStoriesV2-GPT4-train.bin
+  - --valid_path=tokenized/tokenized-tiny-TinyStoriesV2-GPT4-valid.bin
+  - --eval_every=500
+  - --use_wandb
+  - --device=cuda:0
   - ${args}
 metric:
   name: eval/perplexity
