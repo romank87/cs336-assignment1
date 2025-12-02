@@ -257,6 +257,7 @@ if __name__ == "__main__":
 
     wandb.config.update({
         "context_length": args.context_length,
+        "batch_size": args.batch_size,
         "d_model": args.d_model,
         "num_layers": args.num_layers,
         "num_heads": args.num_heads,
@@ -303,7 +304,7 @@ if __name__ == "__main__":
     for it in range(1, num_iterations + 1):
         iter_start = time.perf_counter()
 
-        x, y = cs336_basics.get_batch(dataset=train_tensor, context_length=args.context_length, batch_size=4,
+        x, y = cs336_basics.get_batch(dataset=train_tensor, context_length=args.context_length, batch_size=args.batch_size,
                                       device=device)
         lr = scheduler.step(it)
         optim.zero_grad()
