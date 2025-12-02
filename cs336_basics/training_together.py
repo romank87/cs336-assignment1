@@ -301,7 +301,7 @@ if __name__ == "__main__":
 
     Tw = 100
     Tc = num_iterations
-    scheduler = LRScheduler(optim, lambda t: cs336_basics.run_get_lr_cosine_schedule(t, alpha_max, alpha_min, Tw, Tc))
+    scheduler = LRScheduler(optim, lambda t: cs336_basics.run_get_lr_cosine_schedule(t, args.alpha_max, args.alpha_min, Tw, Tc))
 
     for it in range(1, num_iterations + 1):
         iter_start = time.perf_counter()
