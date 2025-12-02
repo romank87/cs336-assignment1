@@ -53,7 +53,7 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--d_model", type=int, default=1024 * 2,
                         help="Transformer hidden size (default: %(default)s).", )
-    parser.add_argument("--num_layers", type=int, default=12,
+    parser.add_argument("--num_layers", type=int, default=2,
                         help="Number of Transformer blocks (default: %(default)s).", )
     parser.add_argument("--num_heads", type=int, default=16,
                         help="Attention heads per layer (default: %(default)s).", )
@@ -80,6 +80,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--p", type=float, default=0.9,
                         help="Nucleus sampling parameter p (default: %(default)s).", )
 
+    parser.add_argument("--use_wandb", action="store_true",
+                        help="Whether to use wandb for logging.", )
+
     return parser.parse_args()
 
 
@@ -88,12 +91,12 @@ def evaluate(valid_tensor, context_length, model):
     acc, count = 0.0, 0
     with torch.no_grad():
         for start in range(0, len(valid_tensor) - context_length - 1, stride):
-            x = torch.from_numpy(np.array(
+            x = torch.from_numpy(
                 valid_tensor[start:start + context_length]
-            )).long().unsqueeze(0).to(model.device)
+            ).long().unsqueeze(0).to(model.device)
 
             pred = valid_tensor[start + context_length:start + context_length + 1]
-            targets = torch.from_numpy(np.array(pred)).long().to(model.device)
+            targets = torch.from_numpy(pred).long().to(model.device)
             out = model.forward(in_indices=x)
 
             res = cs336_basics.run_cross_entropy(
@@ -269,6 +272,7 @@ if __name__ == "__main__":
     wandb.init(
         project="cs336",
         settings=wandb.Settings(base_url=wandb_base_url),
+        mode="disabled" if not args.use_wandb else "online",
         config={
             "context_length": args.context_length,
             "d_model": args.d_model,
