@@ -57,13 +57,13 @@ def parse_args() -> argparse.Namespace:
                         help="Number of Transformer blocks (default: %(default)s).", )
     parser.add_argument("--num_heads", type=int, default=16,
                         help="Attention heads per layer (default: %(default)s).", )
-    parser.add_argument("--d_ff", type=int, default=11344,
+    parser.add_argument("--d_ff", type=int, default=1344,
                         help="Feed-forward hidden size (default: %(default)s).", )
     parser.add_argument("--rope_theta", type=float, default=10000.0,
                         help="RoPE theta parameter (default: %(default)s).", )
 
-    parser.add_argument("--num_iterations", type=int, default=5000,
-                        help="Number of training iterations to run (default: %(default)s).", )
+    # parser.add_argument("--num_iterations", type=int, default=5000,
+    #                     help="Number of training iterations to run (default: %(default)s).", )
 
     parser.add_argument("--max_tokens", type=int, default=100,
                         help="Max number of tokens to decode", )
@@ -83,6 +83,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--use_wandb", action="store_true",
                         help="Whether to use wandb for logging.", )
 
+    parser.add_argument("--batch_size", type=int, default=64,
+                        help="Batch size for training (default: %(default)s).", )
+
+    parser.add_argument("--training_budget", type=int, default=327680000,
+                        help="Training budget in number of tokens (default: %(default)s).", )
     return parser.parse_args()
 
 
@@ -228,10 +233,38 @@ class ModelWrapper:
 if __name__ == "__main__":
     args = parse_args()
 
+    # Initialize wandb first (before using args for model creation)
+    wandb_base_url = os.getenv("WANDB_BASE_URL", "https://wandb.gnlp.io")
+    wandb.init(
+        project="cs336",
+        settings=wandb.Settings(base_url=wandb_base_url),
+        mode="disabled" if not args.use_wandb else "online",
+    )
+
+    # Override args with sweep config (if running as sweep agent)
+    if wandb.run and wandb.config:
+        for key, value in wandb.config.items():
+            if hasattr(args, key):
+                setattr(args, key, value)
+
+    # Read sweep params (with defaults for non-sweep runs)
+    alpha_max = wandb.config.get("alpha_max", 1e-3)
+    alpha_min = wandb.config.get("alpha_min", 1e-5)
+
+    wandb.config.update({
+        "context_length": args.context_length,
+        "d_model": args.d_model,
+        "num_layers": args.num_layers,
+        "num_heads": args.num_heads,
+        "d_ff": args.d_ff,
+        "num_iterations": args.num_iterations,
+        "alpha_max": alpha_max,
+        "alpha_min": alpha_min,
+    })
+
     train_path = args.train_path
     valid_path = args.valid_path
-
-    num_iterations = args.num_iterations
+    # num_iterations = args.num_iterations
 
     print(f"Using files: \ntrain_path={train_path} \nvalid_path={valid_path}")
 
@@ -261,29 +294,11 @@ if __name__ == "__main__":
 
     optim = cs336_basics.MyAdamW(params=[w for w in model.weights.values()])
 
-    # usage:
-    alpha_max = 1e-3
-    alpha_min = 1e-5
+    num_iterations = args.training_budget // (args.batch_size * args.context_length)
+    print(f"Will run training for {num_iterations} iterations.")
     Tw = 100
     Tc = num_iterations
     scheduler = LRScheduler(optim, lambda t: cs336_basics.run_get_lr_cosine_schedule(t, alpha_max, alpha_min, Tw, Tc))
-
-    wandb_base_url = os.getenv("WANDB_BASE_URL", "https://wandb.gnlp.io")
-    wandb.init(
-        project="cs336",
-        settings=wandb.Settings(base_url=wandb_base_url),
-        mode="disabled" if not args.use_wandb else "online",
-        config={
-            "context_length": args.context_length,
-            "d_model": args.d_model,
-            "num_layers": args.num_layers,
-            "num_heads": args.num_heads,
-            "d_ff": args.d_ff,
-            "num_iterations": args.num_iterations,
-            "lr_max": alpha_max,
-            "lr_min": alpha_min,
-        }
-    )
 
     for it in range(1, num_iterations + 1):
         iter_start = time.perf_counter()

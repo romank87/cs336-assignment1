@@ -1,0 +1,22 @@
+program: cs336_basics/training_together.py
+method: bayes
+metric:
+  name: eval/perplexity
+  goal: minimize
+parameters:
+  d_model:
+    values: [256, 512, 1024]
+  num_layers:
+    values: [2, 4, 6]
+  num_heads:
+    values: [8, 16]
+  d_ff:
+    values: [1024, 2048, 4096]
+  alpha_max:
+    min: 1e-4
+    max: 1e-2
+    distribution: log_uniform_values
+  alpha_min:
+    min: 1e-6
+    max: 1e-4
+    distribution: log_uniform_values
