@@ -254,11 +254,6 @@ if __name__ == "__main__":
             if hasattr(args, key):
                 setattr(args, key, value)
 
-    # Read sweep params (with defaults for non-sweep runs)
-    alpha_max = wandb.config.get("alpha_max", 1e-3)
-    alpha_min = wandb.config.get("alpha_min", 1e-5)
-
-
     num_iterations = args.training_budget // (args.batch_size * args.context_length)
     print(f"Will run training for {num_iterations} iterations. Training budget: {args.training_budget} tokens. ")
 
@@ -269,8 +264,8 @@ if __name__ == "__main__":
         "num_layers": args.num_layers,
         "num_heads": args.num_heads,
         "d_ff": args.d_ff,
-        "alpha_max": alpha_max,
-        "alpha_min": alpha_min,
+        "alpha_max": args.alpha_max,
+        "alpha_min": args.alpha_min,
     })
 
     train_path = args.train_path
