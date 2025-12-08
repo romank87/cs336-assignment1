@@ -7,6 +7,7 @@ import torch
 import wandb
 from jaxtyping import Int, Float
 from torch import Tensor
+from tqdm import tqdm
 
 import cs336_basics
 from cs336_basics import Tokenizer, run_transformer_lm
@@ -62,16 +63,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--rope_theta", type=float, default=10000.0,
                         help="RoPE theta parameter (default: %(default)s).", )
 
-    # parser.add_argument("--num_iterations", type=int, default=5000,
-    #                     help="Number of training iterations to run (default: %(default)s).", )
-
     parser.add_argument("--max_tokens", type=int, default=100,
                         help="Max number of tokens to decode", )
 
-    parser.add_argument("--device", type=str, default="cpu",
+    parser.add_argument("--device", type=str, default="mps",
                         help="Device to use for training. examples: cuda:0, mps, cpu", )
 
-    parser.add_argument("--eval_every", type=int, default=200,
+    parser.add_argument("--eval_every", type=int, default=100,
                         help="Evaluate every N iterations (default: %(default)s).", )
 
     parser.add_argument("--temperature", type=float, default=0.7,
@@ -98,29 +96,32 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def evaluate(valid_tensor, context_length, model):
-    stride = 10000
-    acc, count = 0.0, 0
+def evaluate(valid_tensor, context_length, model, eval_bs):
+    stride = context_length * 25
+    nll_acc, count = 0.0, 0
+    samples = []
+    start_time = time.perf_counter()
     with torch.no_grad():
-        for start in range(0, len(valid_tensor) - context_length - 1, stride):
-            x = torch.from_numpy(
-                valid_tensor[start:start + context_length]
-            ).long().unsqueeze(0).to(model.device)
+        for start in tqdm(range(0, len(valid_tensor) - context_length - 1, stride)):
+            x = torch.from_numpy(valid_tensor[start:start + context_length]).long().to(model.device)
+            y = torch.from_numpy(valid_tensor[start + 1:start + context_length + 1]).long().to(model.device)
 
-            pred = valid_tensor[start + context_length:start + context_length + 1]
-            targets = torch.from_numpy(pred).long().to(model.device)
-            out = model.forward(in_indices=x)
+            samples.append((x, y))
+            if len(samples) == eval_bs:
+                x = torch.stack([s[0] for s in samples], dim=0)
+                y = torch.stack([s[1] for s in samples], dim=0)
+                samples = []
 
-            res = cs336_basics.run_cross_entropy(
-                inputs=out[:, -1, :],
-                targets=targets, )
+                out = model.forward(in_indices=x)
+                res = cs336_basics.run_cross_entropy(inputs=out, targets=y, )
 
-            acc += res.item()
-            count += 1
+                nll_acc += res.item() * context_length * eval_bs
+                count += context_length * eval_bs
 
-    ppl = math.exp(acc / count)
-    print(f"Validation perplexity: {ppl:0.3f}")
-    return ppl
+    nll = nll_acc / count
+    ppl = math.exp(nll)
+    print(f"Validation perplexity: {ppl:0.3f}, NLL: {nll:0.3f}, eval time: {time.perf_counter() - start_time:0.3f} sec")
+    return ppl, nll
 
 
 def next_tokens(logits: Float[Tensor, " bs len vocab_size"], temperature: float, p: float) -> Int[Tensor, " bs"]:
@@ -301,12 +302,15 @@ if __name__ == "__main__":
 
     Tw = 100
     Tc = num_iterations
-    scheduler = LRScheduler(optim, lambda t: cs336_basics.run_get_lr_cosine_schedule(t, args.alpha_max, args.alpha_min, Tw, Tc))
+    scheduler = LRScheduler(optim,
+                            lambda t: cs336_basics.run_get_lr_cosine_schedule(t, args.alpha_max, args.alpha_min, Tw,
+                                                                              Tc))
 
     for it in range(1, num_iterations + 1):
         iter_start = time.perf_counter()
 
-        x, y = cs336_basics.get_batch(dataset=train_tensor, context_length=args.context_length, batch_size=args.batch_size,
+        x, y = cs336_basics.get_batch(dataset=train_tensor, context_length=args.context_length,
+                                      batch_size=args.batch_size,
                                       device=device)
         lr = scheduler.step(it)
         optim.zero_grad()
@@ -333,7 +337,7 @@ if __name__ == "__main__":
             print(
                 f"{it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec/iter")
 
-            ppl = evaluate(valid_tensor, args.context_length, model)
+            ppl, nll = evaluate(valid_tensor, args.context_length, model, eval_bs=args.batch_size)
             wandb.log({"eval/perplexity": ppl, "iteration": it})
 
             print("Decoding sample prompt...")
