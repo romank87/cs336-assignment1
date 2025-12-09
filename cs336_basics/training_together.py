@@ -93,6 +93,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--alpha_min", type=float, default=1e-5,
                         help="Min learning rate (default: %(default)s).", )
 
+    parser.add_argument("--do_compile", action="store_true",
+                        help="Whether to torch.compile the model.", )
+
     return parser.parse_args()
 
 
@@ -306,6 +309,12 @@ if __name__ == "__main__":
         rope_theta=args.rope_theta,
         device=device,
     )
+
+    if args.do_compile:
+        if args.device == 'mps':
+            model = torch.compile(model, backend="aot_eager")
+        else:
+            model = torch.compile(model)
 
     train_tensor = np.memmap(train_path, dtype=np.uint16, mode='r')
     valid_tensor = np.memmap(valid_path, dtype=np.uint16, mode='r')
