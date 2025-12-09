@@ -99,7 +99,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def evaluate(valid_tensor, context_length, model, eval_bs):
-    stride = context_length * 25
+    stride = context_length
     nll_acc, count = 0.0, 0
     samples = []
     start_time = time.perf_counter()
