@@ -243,6 +243,7 @@ if __name__ == "__main__":
 
     # Initialize wandb first (before using args for model creation)
     wandb_base_url = os.getenv("WANDB_BASE_URL", "https://wandb.gnlp.io")
+    print(f"WandB base URL: {wandb_base_url}")
     wandb.init(
         project="cs336",
         settings=wandb.Settings(base_url=wandb_base_url),
@@ -321,13 +322,14 @@ if __name__ == "__main__":
 
         g_norm = cs336_basics.run_gradient_clipping(model.weights.values(), 1.0)
 
+        optim.step()
+
         if it and it % 10 == 0:
             wandb.log({
                 "train/loss": loss.item(),
                 "train/lr": lr,
                 "train/grad_norm": g_norm,
-                "iteration": it,
-            })
+            }, step=it)
 
         if args.eval_every >= 10 and it and it % (args.eval_every // 10) == 0:
             print(".", end="", flush=True)
@@ -338,7 +340,7 @@ if __name__ == "__main__":
                 f"{it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec/iter")
 
             ppl, nll = evaluate(valid_tensor, args.context_length, model, eval_bs=args.batch_size)
-            wandb.log({"eval/perplexity": ppl, "iteration": it})
+            wandb.log({"eval/perplexity": ppl, "eval/nll": nll, "iteration": it}, step=it)
 
             print("Decoding sample prompt...")
             decode("Once upon a time", args.max_tokens, model, tokenizer, temperature=args.temperature, p=args.p)
@@ -348,7 +350,5 @@ if __name__ == "__main__":
                 print(f"Saving model to {args.save_model_path}...", end="", flush=True)
                 torch.save(data, args.save_model_path)
                 print(" done.")
-
-        optim.step()
 
     wandb.finish()
