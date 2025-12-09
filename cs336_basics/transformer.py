@@ -11,8 +11,8 @@ def run_transformer_block(
         d_ff: int,
         max_seq_len: int,
         theta: float,
-        ln1_rope,
-        ln2_rope,
+        ln1,
+        ln2,
         q_proj,
         k_proj,
         v_proj,
@@ -84,7 +84,7 @@ def run_transformer_block(
         running the Transformer block on the input features while using RoPE.
     """
 
-    normalized = run_rmsnorm(d_model, 1e-5, ln1_rope, in_features)
+    normalized = run_rmsnorm(d_model, 1e-5, ln1, in_features)
     token_positions = torch.arange(in_features.shape[1], device=in_features.device).unsqueeze(0)
 
     multihead_attn_output = run_multihead_self_attention_with_rope(d_model, num_heads, max_seq_len, theta,
@@ -97,7 +97,7 @@ def run_transformer_block(
 
     attn_output = in_features + multihead_attn_output
 
-    normalized2 = run_rmsnorm(d_model, 1e-5, ln2_rope, attn_output)
+    normalized2 = run_rmsnorm(d_model, 1e-5, ln2, attn_output)
     run_swiglu_output = run_swiglu(d_model, d_ff, ffn1,
                                    ffn2,
                                    ffn3,
