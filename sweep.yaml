@@ -1,5 +1,5 @@
 program: cs336_basics/training_together.py
-method: bayes
+method: grid
 command:
   - ${env}
   - uv
@@ -12,26 +12,13 @@ command:
   - --eval_every=500
   - --use_wandb
   - --device=cuda:0
+  - --do_compile
   - ${args}
 metric:
   name: eval/perplexity
   goal: minimize
 parameters:
   batch_size:
-    values: [4, 8, 16, 32]
-  d_model:
-    values: [256, 512, 1024]
-  num_layers:
-    values: [2, 4, 6]
-  num_heads:
-    values: [8, 16]
-  d_ff:
-    values: [1024, 2048, 4096]
+    values: [ 4, 8, 16, 32,  64,  128, 256, 512 ]
   alpha_max:
-    min: 1e-4
-    max: 1e-2
-    distribution: log_uniform_values
-  alpha_min:
-    min: 1e-6
-    max: 1e-4
-    distribution: log_uniform_values
+    values: [ 5e-5, 1e-4, 2e-4, 3e-4, 5e-4, 1e-3, 2e-3, 3e-3, 5e-3, 1e-2 ]

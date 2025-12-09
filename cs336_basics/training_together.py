@@ -269,6 +269,7 @@ if __name__ == "__main__":
         for key, value in wandb.config.items():
             if hasattr(args, key):
                 setattr(args, key, value)
+        wandb.run.name = f"sweep-bs{args.batch_size}_lr{args.alpha_max:.0e}"
 
     num_iterations = args.training_budget // (args.batch_size * args.context_length)
     print(f"Will run training for {num_iterations} iterations. Training budget: {args.training_budget} tokens. ")
