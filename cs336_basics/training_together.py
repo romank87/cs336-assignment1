@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import wandb
 from jaxtyping import Int, Float
-from torch import Tensor
+from torch import Tensor, nn
 from tqdm import tqdm
 
 import cs336_basics
@@ -112,7 +112,7 @@ def evaluate(valid_tensor, context_length, model, eval_bs):
                 y = torch.stack([s[1] for s in samples], dim=0)
                 samples = []
 
-                out = model.forward(in_indices=x)
+                out = model(in_indices=x)
                 res = cs336_basics.run_cross_entropy(inputs=out, targets=y, )
 
                 nll_acc += res.item() * context_length * eval_bs
@@ -155,7 +155,7 @@ def decode(prompt, max_tokens, model, tokenizer, temperature=1.0, p=0.9):
 
     while next_token != end_of_text and max_tokens > 0:
         max_tokens -= 1
-        out = model.forward(in_indices=x)
+        out = model(in_indices=x)
         token_indices = next_tokens(out, temperature=temperature, p=p)
 
         next_token = token_indices[0].item()
@@ -167,7 +167,7 @@ def decode(prompt, max_tokens, model, tokenizer, temperature=1.0, p=0.9):
     print("Decoded text:", tokenizer.decode(lst))
 
 
-class ModelWrapper:
+class ModelWrapper(nn.Module):
     def __init__(
             self,
             vocab_size: int,
@@ -179,6 +179,8 @@ class ModelWrapper:
             rope_theta: float,
             device,
     ):
+        super().__init__()
+
         self.vocab_size = vocab_size
         self.context_length = context_length
         self.d_model = d_model
@@ -188,40 +190,49 @@ class ModelWrapper:
         self.rope_theta = rope_theta
         self.device = device
 
-        self.weights = self.create_weights()
-        assert all(w.requires_grad for w in self.weights.values()), "All weights must require gradients."
+        # Direct attributes
+        self.token_embeddings = cs336_basics.Embedding(vocab_size, d_model, device)
+        self.ln_final_weight = nn.Parameter(torch.ones(d_model, device=device))
+        self.lm_head = cs336_basics.Linear(d_model, vocab_size, device)
 
-    def create_weights(self):
+        # ModuleDict for layer Linear modules
+        self.layer_modules = nn.ModuleDict()
+        # ParameterDict for layer norm weights
+        self.layer_params = nn.ParameterDict()
+
+        for i in range(num_layers):
+            self.layer_modules[f'{i}:attn:q_proj'] = cs336_basics.Linear(d_model, d_model, device=device)
+            self.layer_modules[f'{i}:attn:k_proj'] = cs336_basics.Linear(d_model, d_model, device=device)
+            self.layer_modules[f'{i}:attn:v_proj'] = cs336_basics.Linear(d_model, d_model, device=device)
+            self.layer_modules[f'{i}:attn:output_proj'] = cs336_basics.Linear(d_model, d_model, device=device)
+            self.layer_modules[f'{i}:ffn:w1'] = cs336_basics.Linear(d_model, d_ff, device=device)
+            self.layer_modules[f'{i}:ffn:w2'] = cs336_basics.Linear(d_ff, d_model, device=device)
+            self.layer_modules[f'{i}:ffn:w3'] = cs336_basics.Linear(d_model, d_ff, device=device)
+
+            self.layer_params[f'{i}:ln1:weight'] = nn.Parameter(torch.ones(d_model, device=device))
+            self.layer_params[f'{i}:ln2:weight'] = nn.Parameter(torch.ones(d_model, device=device))
+
+    def _get_weights(self):
+        """Remap to keys expected by run_transformer_lm"""
         weights = {
-            'token_embeddings.weight': cs336_basics.Embedding(self.vocab_size, self.d_model, self.device).W,
-            'ln_final.weight': torch.ones(self.d_model, requires_grad=True, device=self.device),
-            'lm_head.weight': cs336_basics.Linear(self.d_model, self.vocab_size, device=self.device).weight,
+            'token_embeddings.weight': self.token_embeddings.weight,
+            'ln_final.weight': self.ln_final_weight,
+            'lm_head.weight': self.lm_head.weight,
         }
-
-        for layer_idx in range(self.num_layers):
-            weights.update({
-                f'layers.{layer_idx}.attn.q_proj.weight': cs336_basics.Linear(self.d_model, self.d_model,
-                                                                              device=self.device).weight,
-                f'layers.{layer_idx}.attn.k_proj.weight': cs336_basics.Linear(self.d_model, self.d_model,
-                                                                              device=self.device).weight,
-                f'layers.{layer_idx}.attn.v_proj.weight': cs336_basics.Linear(self.d_model, self.d_model,
-                                                                              device=self.device).weight,
-                f'layers.{layer_idx}.attn.output_proj.weight': cs336_basics.Linear(self.d_model, self.d_model,
-                                                                                   device=self.device).weight,
-                f'layers.{layer_idx}.ln1.weight': torch.ones(self.d_model, requires_grad=True, device=self.device),
-                f'layers.{layer_idx}.ffn.w1.weight': cs336_basics.Linear(self.d_model, self.d_ff,
-                                                                         device=self.device).weight,
-                f'layers.{layer_idx}.ffn.w2.weight': cs336_basics.Linear(self.d_ff, self.d_model,
-                                                                         device=self.device).weight,
-                f'layers.{layer_idx}.ffn.w3.weight': cs336_basics.Linear(self.d_model, self.d_ff,
-                                                                         device=self.device).weight,
-                f'layers.{layer_idx}.ln2.weight': torch.ones(self.d_model, requires_grad=True, device=self.device),
-            })
-
+        for i in range(self.num_layers):
+            weights[f'layers.{i}.attn.q_proj.weight'] = self.layer_modules[f'{i}:attn:q_proj'].weight
+            weights[f'layers.{i}.attn.k_proj.weight'] = self.layer_modules[f'{i}:attn:k_proj'].weight
+            weights[f'layers.{i}.attn.v_proj.weight'] = self.layer_modules[f'{i}:attn:v_proj'].weight
+            weights[f'layers.{i}.attn.output_proj.weight'] = self.layer_modules[f'{i}:attn:output_proj'].weight
+            weights[f'layers.{i}.ffn.w1.weight'] = self.layer_modules[f'{i}:ffn:w1'].weight
+            weights[f'layers.{i}.ffn.w2.weight'] = self.layer_modules[f'{i}:ffn:w2'].weight
+            weights[f'layers.{i}.ffn.w3.weight'] = self.layer_modules[f'{i}:ffn:w3'].weight
+            weights[f'layers.{i}.ln1.weight'] = self.layer_params[f'{i}:ln1:weight']
+            weights[f'layers.{i}.ln2.weight'] = self.layer_params[f'{i}:ln2:weight']
         return weights
 
     def forward(self, in_indices: Int[Tensor, "batch_size sequence_length"]) -> Tensor:
-        out = run_transformer_lm(
+        return run_transformer_lm(
             vocab_size=self.vocab_size,
             context_length=self.context_length,
             d_model=self.d_model,
@@ -229,13 +240,9 @@ class ModelWrapper:
             num_heads=self.num_heads,
             d_ff=self.d_ff,
             rope_theta=self.rope_theta,
-            weights=self.weights,
+            weights=self._get_weights(),
             in_indices=in_indices,
         )
-        return out
-
-    def state_dict(self):
-        return self.weights
 
 
 if __name__ == "__main__":
@@ -304,7 +311,7 @@ if __name__ == "__main__":
     valid_tensor = np.memmap(valid_path, dtype=np.uint16, mode='r')
     print(len(train_tensor), len(valid_tensor))
 
-    optim = cs336_basics.MyAdamW(params=[w for w in model.weights.values()])
+    optim = cs336_basics.MyAdamW(params=list(model.parameters()))
 
     Tw = 100
     Tc = num_iterations
@@ -320,12 +327,12 @@ if __name__ == "__main__":
                                       device=device)
         lr = scheduler.step(it)
         optim.zero_grad()
-        out = model.forward(in_indices=x)
+        out = model(in_indices=x)
 
         loss = cs336_basics.run_cross_entropy(out, targets=y)
         loss.backward()
 
-        g_norm = cs336_basics.run_gradient_clipping(model.weights.values(), 1.0)
+        g_norm = cs336_basics.run_gradient_clipping(model.parameters(), 1.0)
 
         optim.step()
 
