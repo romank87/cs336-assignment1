@@ -12,7 +12,6 @@ from tqdm import tqdm
 import cs336_basics
 from cs336_basics import Tokenizer, run_transformer_lm
 
-
 class LRScheduler:
     def __init__(self, optimizer, schedule_fn):
         self.optimizer = optimizer
@@ -297,6 +296,11 @@ if __name__ == "__main__":
 
     vocab_size = tokenizer.vocab_size()
     print(f"Loaded tokenizer ({args.tokenizer_dir}) with vocab size {vocab_size}.")
+
+
+    # use tf32 on cuda for better performance
+    if args.device.startswith("cuda"):
+        torch.set_float32_matmul_precision('high')
 
     device = args.device
     model = ModelWrapper(
