@@ -1,3 +1,4 @@
+name: bs-lr-grid-search
 program: cs336_basics/training_together.py
 method: grid
 command:
