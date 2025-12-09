@@ -246,7 +246,12 @@ if __name__ == "__main__":
     print(f"WandB base URL: {wandb_base_url}")
     wandb.init(
         project="cs336",
-        settings=wandb.Settings(base_url=wandb_base_url),
+        settings=wandb.Settings(
+            base_url=wandb_base_url,
+            code_dir=None,  # disable code upload
+            save_code=False,  # disable code saving
+        ),
+        save_code=False,
         mode="disabled" if not args.use_wandb else "online",
     )
 
