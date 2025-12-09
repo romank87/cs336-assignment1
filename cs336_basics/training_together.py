@@ -340,7 +340,7 @@ if __name__ == "__main__":
                 f"{it}/{num_iterations}: lr {lr:.7f}, g_norm: {g_norm:0.5f}, loss {loss.item():0.5f}. {elapsed:0.3f} sec/iter")
 
             ppl, nll = evaluate(valid_tensor, args.context_length, model, eval_bs=args.batch_size)
-            wandb.log({"eval/perplexity": ppl, "eval/nll": nll, "iteration": it}, step=it)
+            wandb.log({"eval/perplexity": ppl, "eval/nll": nll}, step=it)
 
             print("Decoding sample prompt...")
             decode("Once upon a time", args.max_tokens, model, tokenizer, temperature=args.temperature, p=args.p)
