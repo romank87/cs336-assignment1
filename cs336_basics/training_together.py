@@ -12,6 +12,7 @@ from tqdm import tqdm
 import cs336_basics
 from cs336_basics import Tokenizer, run_transformer_lm
 
+
 class LRScheduler:
     def __init__(self, optimizer, schedule_fn):
         self.optimizer = optimizer
@@ -68,8 +69,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--device", type=str, default="mps",
                         help="Device to use for training. examples: cuda:0, mps, cpu", )
 
-    parser.add_argument("--eval_every", type=int, default=100,
-                        help="Evaluate every N iterations (default: %(default)s).", )
+    parser.add_argument("--eval_every", type=int, default=None,
+                        help="Evaluate every N iterations. If not set, defaults to 20% of total training iterations.", )
 
     parser.add_argument("--temperature", type=float, default=0.7,
                         help="Temperature", )
@@ -272,7 +273,13 @@ if __name__ == "__main__":
         wandb.run.name = f"sweep-bs{args.batch_size}_lr{args.alpha_max:.0e}"
 
     num_iterations = args.training_budget // (args.batch_size * args.context_length)
+
+    # Eval every 20% of training
+    if args.eval_every is None:
+        args.eval_every = num_iterations // 5
+
     print(f"Will run training for {num_iterations} iterations. Training budget: {args.training_budget} tokens. ")
+    print(f"Evaluating every {args.eval_every} iterations, or every {args.eval_every / num_iterations * 100:.1f}%")
 
     wandb.config.update({
         "context_length": args.context_length,
@@ -297,7 +304,6 @@ if __name__ == "__main__":
 
     vocab_size = tokenizer.vocab_size()
     print(f"Loaded tokenizer ({args.tokenizer_dir}) with vocab size {vocab_size}.")
-
 
     # use tf32 on cuda for better performance
     if args.device.startswith("cuda"):
