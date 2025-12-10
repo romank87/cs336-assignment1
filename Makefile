@@ -19,11 +19,11 @@ train-tokenizer:
 tokenize-tinystories:
 	mkdir -p tokenized
 	uv run cs336_basics/tokenizer.py \
-		--tokenizer-dir tokenizer/tiny_stories \
+		--tokenizer-dir tokenizer/tiny \
 		--dataset data/TinyStoriesV2-GPT4-train.txt \
 		--output-dir tokenized
 	uv run cs336_basics/tokenizer.py \
-		--tokenizer-dir tokenizer/tiny_stories \
+		--tokenizer-dir tokenizer/tiny \
 		--dataset data/TinyStoriesV2-GPT4-valid.txt \
 		--output-dir tokenized
 

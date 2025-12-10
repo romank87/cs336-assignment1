@@ -1,4 +1,4 @@
-name: bs-lr-grid-search
+name: owt-grid-search
 program: cs336_basics/training_together.py
 method: grid
 command:
@@ -7,19 +7,19 @@ command:
   - run
   - python
   - ${program}
-  - --tokenizer_dir=tokenizer/tiny/
-  - --train_path=tokenized/tokenized-tiny-TinyStoriesV2-GPT4-train.bin
-  - --valid_path=tokenized/tokenized-tiny-TinyStoriesV2-GPT4-valid.bin
+  - --tokenizer_dir=tokenizer/owt
+  - --train_path=tokenized/tokenized-owt-owt_train.bin
+  - --valid_path=tokenized/tokenized-owt-owt_valid.bin
   - --eval_every=1000
   - --use_wandb
   - --device=cuda:0
   - --do_compile
   - ${args}
 metric:
-  name: eval/perplexity
+  name: eval/nll
   goal: minimize
 parameters:
   batch_size:
-    values: [  32,  64,  128, 256, 512, 8, 16 ]
+    values: [  32,  64,  128, 256]
   alpha_max:
-    values: [ 5e-5, 1e-4, 3e-4, 6e-4, 1e-3, 3e-3, 6e-3, 1e-2 ]
+    values: [ 3e-3, 6e-3, 1e-3 ]
