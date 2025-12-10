@@ -7,7 +7,7 @@ from .tokenizer import Tokenizer
 from .linear import Linear
 from .embedding import Embedding
 from .other import run_rmsnorm
-from .other import run_swiglu
+from .other import run_swiglu, run_silu
 from .other import run_rope
 from .other import run_softmax, run_softmax_with_temperature
 from .other import run_get_lr_cosine_schedule, run_gradient_clipping

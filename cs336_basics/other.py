@@ -23,6 +23,10 @@ def run_rmsnorm(
     return (x * weights).to(in_dtype)
 
 
+def run_silu(x: torch.Tensor) -> torch.Tensor:
+    return x * torch.sigmoid(x)
+
+
 def run_swiglu(
         d_model: int,
         d_ff: int,
